@@ -7,6 +7,7 @@
 import unittest
 from avax.webdav.wsgidav.util import * #@UnusedWildImport
 
+
 class BasicTest(unittest.TestCase):
     """Test ."""
 
@@ -18,19 +19,15 @@ class BasicTest(unittest.TestCase):
 #         suite.addTest(cls("testBasics"))
 #         return suite
 
-
     def setUp(self):
         pass
-
 
     def tearDown(self):
         pass
 
-
     def testPreconditions(self):
         """Environment must be set."""
         self.assertTrue(__debug__, "__debug__ must be True, otherwise asserts are ignored")
-
 
     def testBasics(self):
         """Test basic tool functions."""

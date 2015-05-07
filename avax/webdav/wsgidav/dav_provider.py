@@ -95,18 +95,18 @@ __docformat__ = "reStructuredText"
 
 _logger = util.getModuleLogger(__name__)
 
-_standardLivePropNames = ["{DAV:}creationdate", 
-                          "{DAV:}displayname", 
-                          "{DAV:}getcontenttype",
-                          "{DAV:}resourcetype",
-                          "{DAV:}getlastmodified", 
-                          "{DAV:}getcontentlength", 
-                          "{DAV:}getetag", 
-                          "{DAV:}getcontentlanguage", 
+_standardLivePropNames = [b"{DAV:}creationdate",
+                          b"{DAV:}displayname",
+                          b"{DAV:}getcontenttype",
+                          b"{DAV:}resourcetype",
+                          b"{DAV:}getlastmodified",
+                          b"{DAV:}getcontentlength",
+                          b"{DAV:}getetag",
+                          b"{DAV:}getcontentlanguage",
 #                          "{DAV:}source", # removed in rfc4918
                           ] 
-_lockPropertyNames = ["{DAV:}lockdiscovery", 
-                      "{DAV:}supportedlock"]
+_lockPropertyNames = [b"{DAV:}lockdiscovery",
+                      b"{DAV:}supportedlock"]
 
 #DAVHRES_Continue = "continue"
 #DAVHRES_Done = "done"
@@ -1344,7 +1344,7 @@ class DAVProvider(object):
         """
         if isinstance(sharePath, unicode):
             sharePath = sharePath.encode("utf8")
-        assert sharePath=="" or sharePath.startswith("/")
+        assert sharePath == "" or sharePath.startswith("/")
         if sharePath == "/":
             sharePath = ""  # This allows to code 'absPath = sharePath + path'
         assert sharePath in ("", "/") or not sharePath.endswith("/")

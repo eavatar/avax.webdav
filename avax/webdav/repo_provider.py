@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ DAVProvider using avax.repository.
 """
-from __future__ import (absolute_import, division, unicode_literals)
+from __future__ import (absolute_import, division)
 
 import os
 import logging
@@ -76,6 +76,11 @@ class FileResource(DAVNonCollection):
 
         return self._fileobj.put_content_as_stream()
 
+    def endWrite(self, withErrors=True):
+        logger.debug("endWrite invoked, try to commit.")
+        if not self._batch.readonly:
+            self._batch.commit()
+
     def delete(self):
         """Remove this resource or collection (recursive).
 
@@ -85,6 +90,7 @@ class FileResource(DAVNonCollection):
             raise DAVError(HTTP_FORBIDDEN)
 
         self._batch.remove_document(self.path)
+        self._batch.commit()
         self.removeAllProperties(True)
         self.removeAllLocks(True)
 
@@ -181,9 +187,9 @@ class FolderResource(DAVCollection):
 #        name = name.encode("utf8")
         path = util.joinUri(self.path, name)
         if fileobj.is_folder():
-            res = FolderResource(path, self.environ, fileobj)
+            res = FolderResource(self._batch, path, self.environ, fileobj)
         elif fileobj.is_document():
-            res = FileResource(path, self.environ, fileobj)
+            res = FileResource(self._batch, path, self.environ, fileobj)
         else:
             logger.debug("Skipping non-file %s" % fp)
             res = None
@@ -206,8 +212,6 @@ class FolderResource(DAVCollection):
 
         path = util.joinUri(self.path, name)
         self._fileobj.create_document(name)
-        self._fileobj.save()
-        self._batch.update_file(path, self._fileobj)
         self._batch.commit()
         return self.provider.getResourceInst(path, self.environ)
 
@@ -216,6 +220,8 @@ class FolderResource(DAVCollection):
 
         See DAVResource.createCollection()
         """
+        if isinstance(name, str):
+            name = unicode(name, 'utf-8')
         assert "/" not in name
 
         if self.provider.readonly:
@@ -289,6 +295,11 @@ class RepositoryProvider(DAVProvider):
         self.repository = repository
         self.readonly = readonly
 
+        # for test
+        self.archive = self.repository.get_archive('files', create=False)
+        with self.archive.begin_batch() as batch:
+            batch.create_folders("/public")
+
     def _split_path(self, path):
         path = path.strip('/')
 
@@ -302,6 +313,10 @@ class RepositoryProvider(DAVProvider):
 
     def isReadOnly(self):
         return False
+
+    def exists(self, path, environ):
+        with self.archive.begin_batch(readonly=True) as batch:
+            return batch.file_exists(path)
 
     def getResourceInst(self, full_path, environ):
         """Return info dictionary for path.
@@ -317,17 +332,18 @@ class RepositoryProvider(DAVProvider):
         logger.debug("Archive name: %s", archive_name)
         logger.debug("Path: %s", path)
 
-        try:
-            archive = self.repository.get_archive(archive_name, create=False)
-        except ObjectNotExist:
-            logger.info("Archive not exist: %s", archive_name)
-            return None
+        #try:
+        #    archive = self.repository.get_archive(archive_name, create=False)
+        #except ObjectNotExist:
+        #    logger.info("Archive not exist: %s", archive_name)
+        #    return None
 
-        batch = archive.new_batch()
+        batch = self.archive.begin_batch()
 
         try:
             fileobj = batch.lookup(path)
         except ObjectNotExist:
+            logger.debug("No object bound to path: %s", path)
             return None
 
         if fileobj.is_folder():

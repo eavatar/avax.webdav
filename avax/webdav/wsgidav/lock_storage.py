@@ -287,6 +287,7 @@ class LockStorageDict(object):
         """
         assert path and path.startswith("/")
         assert includeRoot or includeChildren
+
         def __appendLocks(toklist):
             # Since we can do this quickly, we use self.get() even if
             # tokenOnly is set, so expired locks are purged.

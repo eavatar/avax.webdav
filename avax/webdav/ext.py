@@ -29,8 +29,9 @@ class WebDavExtension(object):
         conf = DEFAULT_CONFIG.copy()
         conf.update({
             b"mount_path": b'/dav',
-            b"provider_mapping": {b'/files': repo_provider, b"/temp": user_folder, },
-            b"port": 5000,
+            b"provider_mapping": {'/files': repo_provider,
+                                  "/temp": user_folder, },
+            b"port": 5080,
             b"user_mapping": {},
             b"verbose": 2,
             b"propsmanager": True,
@@ -45,8 +46,9 @@ class WebDavExtension(object):
             },
         })
 
-        dav_app = WsgiDAVApp(conf)
+        dav_app = WsgiDAVApp(conf, repository)
         dispatcher.mount(b'/dav', dav_app)
+
         logger.debug("WebDAV extension started.")
 
     def stop(self, context):

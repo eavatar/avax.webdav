@@ -27,11 +27,15 @@ except:
 
 __all__ = ['DAVClient']
 
+
 class AppError(Exception):
     pass
 
+
 def object_to_etree(parent, obj, namespace=''):
-    """This function takes in a python object, traverses it, and adds it to an existing etree object"""
+    """This function takes in a python object, traverses it,
+    and adds it to an existing etree object
+    """
     
     if type(obj) is int or type(obj) is float or type(obj) is str:
         # If object is a string, int, or float just add it
@@ -75,7 +79,6 @@ class DAVClient(object):
         self.headers = {'Host':self._url[1], 
                         'User-Agent': 'python.davclient.DAVClient/0.1'} 
 
-        
     def _request(self, method, path='', body=None, headers=None):
         """Internal request method"""
         self.response = None
@@ -111,8 +114,7 @@ class DAVClient(object):
             self._get_response_tree()
         except:
             pass
-        
-            
+
     def _get_response_tree(self):
         """Parse the response body into an elementree object"""
         self.response.tree = ElementTree.fromstring(self.response.body)
@@ -185,8 +187,7 @@ class DAVClient(object):
         headers['Content-Type'] = 'text/xml; charset="utf-8"'
         
         self.copy(source, destination, body=unicode(body, 'utf-8'), depth=depth, overwrite=overwrite, headers=headers)
-        
-        
+
     def move(self, source, destination, body=None, depth='infinity', overwrite=True, headers=None):
         """Move DAV resource"""
         # Set all proper headers
@@ -199,8 +200,7 @@ class DAVClient(object):
         headers['Depth'] = depth
             
         self._request('MOVE', source, body=body, headers=headers)
-        
-        
+
     def move_collection(self, source, destination, depth='infinity', overwrite=True, headers=None):
         """Move DAV collection and copy all properties.
 
@@ -215,8 +215,7 @@ class DAVClient(object):
         headers['Content-Type'] = 'text/xml; charset="utf-8"'
 
         self.move(source, destination, unicode(body, 'utf-8'), depth=depth, overwrite=overwrite, headers=headers)
-        
-        
+
     def propfind(self, path, properties='allprop', namespace='DAV:', depth=None, headers=None):
         """Property find. If properties arg is unspecified it defaults to 'allprop'"""
         # Build propfind xml
@@ -294,8 +293,7 @@ class DAVClient(object):
         headers['Content-Type'] = 'text/xml; charset="utf-8"'
         
         self._request('PROPPATCH', path, body=unicode('<?xml version="1.0" encoding="utf-8" ?>\n'+body, 'utf-8'), headers=headers)
-        
-        
+
     def set_lock(self, path, owner, locktype='write', lockscope='exclusive', depth=None, headers=None):
         """Set a lock on a dav resource"""
         root = ElementTree.Element('{DAV:}lockinfo')
@@ -322,7 +320,6 @@ class DAVClient(object):
         for lock in locks:
             lock_list.append(lock.getchildren()[0].text.strip().strip('\n'))
         return lock_list
-        
 
     def refresh_lock(self, path, token, headers=None):
         """Refresh lock with token"""
@@ -342,7 +339,6 @@ class DAVClient(object):
         headers['Lock-Token'] = '<%s>' % token
         
         self._request('UNLOCK', path, body=None, headers=headers)
-
 
     def checkResponse(self, status=None):
         """Raise an error, if self.response doesn't match expected status.
@@ -377,7 +373,6 @@ class DAVClient(object):
                    res.body))
         if status != res.status:
             raise AppError("Bad response: %s (not %s)" % (full_status, status))
-
 
     def checkMultiStatusResponse(self, expect_status=200):
         """"""

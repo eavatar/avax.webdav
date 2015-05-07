@@ -18,7 +18,7 @@ setup(
     description="The WebDAV extension for Ava platform.",
     include_package_data=True,
     zip_safe=True,
-    packages=find_packages(exclude=['tests']),
+    packages=find_packages(exclude=['avax.webdav.tests.*']),
     namespace_packages=['avax'],
 
     entry_points={

@@ -122,8 +122,9 @@ def _checkConfig(config):
 
 class WsgiDAVApp(object):
 
-    def __init__(self, config):
+    def __init__(self, config, repository=None):
         self.config = config
+        self.repository = repository
 
         util.initLogging(config["verbose"], config.get("enable_loggers", []))
         
@@ -258,7 +259,7 @@ class WsgiDAVApp(object):
             if r == "/":
                 share = r
                 break
-            elif path.upper() == r.upper() or path.upper().startswith(r.upper()+"/"):
+            elif path.upper() == r.upper() or path.upper().startswith(r.upper() + "/"):
                 share = r
                 break
         

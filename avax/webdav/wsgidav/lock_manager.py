@@ -65,24 +65,24 @@ def normalizeLockRoot(path):
     assert path
     if type(path) is unicode:
         path = path.encode("utf-8") 
-    path = "/" + path.strip("/")
+    path = b"/" + path.strip(b"/")
     return path
 
 
 def isLockExpired(lock):
-    expire = float(lock["expire"])
+    expire = float(lock[b"expire"])
     return expire >= 0 and expire < time.time()
 
 
 def lockString(lockDict):
     """Return readable rep."""
     if not lockDict:
-        return "Lock: None"
+        return b"Lock: None"
 
-    if lockDict["expire"] < 0:
-        expire = "Infinite (%s)" % (lockDict["expire"])
+    if lockDict[b"expire"] < 0:
+        expire = b"Infinite (%s)" % (lockDict[b"expire"])
     else:
-        expire = "%s (in %s seconds)" % (util.getLogTime(lockDict["expire"]), 
+        expire = b"%s (in %s seconds)" % (util.getLogTime(lockDict["expire"]),
                                           lockDict["expire"] - time.time())
 
     return "Lock(<%s..>, '%s', %s, %s, depth-%s, until %s" % (
@@ -130,15 +130,12 @@ class LockManager(object):
         self.storage = storage
         self.storage.open()
 
-
     def __del__(self):
         self.storage.close()
 
-
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.storage)
-    
-    
+
     def _dump(self, msg="", out=None):
         if out is None:
             out = sys.stdout
@@ -171,7 +168,6 @@ class LockManager(object):
             pprint(userDict, indent=4, width=255, stream=out)
             print >>out, "Locks by owner:" 
             pprint(ownerDict, indent=4, width=255, stream=out)
-
 
     def _generateLock(self, principal, 
                       locktype, lockscope, lockdepth, lockowner, path, timeout):
@@ -211,7 +207,6 @@ class LockManager(object):
         self.storage.create(path, lockDict)
         return lockDict
 
-
     def acquire(self, url, locktype, lockscope, lockdepth, lockowner, timeout, 
                 principal, tokenList):
         """Check for permissions and acquire a lock.
@@ -227,14 +222,12 @@ class LockManager(object):
             return self._generateLock(principal, locktype, lockscope, lockdepth, lockowner, url, timeout)
         finally:
             self._lock.release()
-        
 
     def refresh(self, token, timeout=None):
         """Set new timeout for lock, if existing and valid."""
         if timeout is None:
             timeout = LockManager.LOCK_TIME_OUT_DEFAULT
         return self.storage.refresh(token, timeout)
-
 
     def getLock(self, token, key=None):
         """Return lockDict, or None, if not found or invalid. 
@@ -251,16 +244,13 @@ class LockManager(object):
             return lock
         return lock[key]
 
-
     def release(self, token):
         """Delete lock."""
         self.storage.delete(token)
 
-
     def isTokenLockedByUser(self, token, principal):
         """Return True, if <token> exists, is valid, and bound to <principal>."""   
         return self.getLock(token, "principal") == principal
-
 
 #    def getUrlLockList(self, url, principal=None):
     def getUrlLockList(self, url):
@@ -273,7 +263,6 @@ class LockManager(object):
                                             includeChildren=False, 
                                             tokenOnly=False)
         return lockList
-
 
     def getIndirectUrlLockList(self, url, principal=None):
         """Return a list of valid lockDicts, that protect <path> directly or indirectly.
@@ -299,18 +288,15 @@ class LockManager(object):
             u = util.getUriParent(u)
         return lockList
 
-
     def isUrlLocked(self, url):
         """Return True, if url is directly locked."""
         lockList = self.getUrlLockList(url)
         return len(lockList) > 0
 
-        
     def isUrlLockedByToken(self, url, locktoken):
         """Check, if url (or any of it's parents) is locked by locktoken."""
         lockUrl = self.getLock(locktoken, "root")
         return lockUrl and util.isEqualOrChildUri(lockUrl, url) 
-
 
     def removeAllLocksFromUrl(self, url):
         self._lock.acquireWrite()
@@ -320,7 +306,6 @@ class LockManager(object):
                 self.release(lock["token"])
         finally:
             self._lock.release()               
-
 
     def _checkLockPermission(self, url, locktype, lockscope, lockdepth, 
                              tokenList, principal):
@@ -405,7 +390,6 @@ class LockManager(object):
             raise DAVError(HTTP_LOCKED, errcondition=errcond)
         return
 
-
     def checkWritePermission(self, url, depth, tokenList, principal):
         """Check, if <principal> can modify <url>, otherwise raise HTTP_LOCKED.
         
@@ -481,17 +465,3 @@ class LockManager(object):
         if len(errcond.hrefs) > 0:              
             raise DAVError(HTTP_LOCKED, errcondition=errcond)
         return
-
-
-#===============================================================================
-# test
-#===============================================================================
-def test():
-#    l = ShelveLockManager("wsgidav-locks.shelve")
-#    l._lazyOpen()
-#    l._dump()
-#    l.generateLock("martin", "", lockscope, lockdepth, lockowner, lockroot, timeout)
-    pass
-
-if __name__ == "__main__":
-    test()

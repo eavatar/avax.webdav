@@ -4,32 +4,32 @@
 """
     Unit test for wsgidav HTTP request functionality
 
-    This test suite uses paste.fixture to send fake requests to the WSGI
+    This test suite uses WebTest to send fake requests to the WSGI
     stack.
 
     See http://pythonpaste.org/testing-applications.html
     and http://pythonpaste.org/modules/fixture.html
 """
-from tempfile import gettempdir
-from avax.webdav.wsgidav.wsgidav_app import DEFAULT_CONFIG, WsgiDAVApp
-from avax.webdav.wsgidav.fs_dav_provider import FilesystemProvider
+
 import os
 import shutil
 import sys
 import unittest
 
+from tempfile import gettempdir
+from avax.webdav.wsgidav.wsgidav_app import DEFAULT_CONFIG, WsgiDAVApp
+from avax.webdav.wsgidav.fs_dav_provider import FilesystemProvider
+
 try:
-    from paste.fixture import TestApp  #@UnresolvedImport
+    from webtest import TestApp  #@UnresolvedImport
 except ImportError:
     print >>sys.stderr, "*" * 70
-    print >>sys.stderr, "Could not import paste.fixture.TestApp: some tests will fail."
-    print >>sys.stderr, "Try 'pip install Paste' or use 'python setup.py test' to run these tests."
+    print >>sys.stderr, "Could not import webtest.TestApp: some tests will fail."
+    print >>sys.stderr, "Try 'pip install WebTest' or use 'python setup.py test' to run these tests."
     print >>sys.stderr, "*" * 70
     raise
 
-#===============================================================================
-# ServerTest
-#===============================================================================
+
 class ServerTest(unittest.TestCase):
     """Test wsgidav_app using paste.fixture."""
 
@@ -63,21 +63,17 @@ class ServerTest(unittest.TestCase):
 
         return WsgiDAVApp(config)
 
-
     def setUp(self):
         wsgi_app = self._makeWsgiDAVApp(False)
         self.app = TestApp(wsgi_app)
-
 
     def tearDown(self):
         shutil.rmtree(unicode(self.rootpath))
         del self.app
 
-
     def testPreconditions(self):
         """Environment must be set."""
         self.assertTrue(__debug__, "__debug__ must be True, otherwise asserts are ignored")
-
 
     def testDirBrowser(self):
         """Server must respond to GET on a collection."""
@@ -88,7 +84,6 @@ class ServerTest(unittest.TestCase):
 
         # Access unmapped resource (expect '404 Not Found')
         res = app.get("/not-existing-124/", status=404)
-
 
     def testGetPut(self):
         """Read and write file contents."""
@@ -145,7 +140,6 @@ class ServerTest(unittest.TestCase):
         # PUT a small file (expect '201 Created')
         app.put("/file1.txt", params=data1, status=201)
 
-
     def testEncoding(self):
         """Handle special characters."""
         app = self.app
@@ -169,7 +163,6 @@ class ServerTest(unittest.TestCase):
         # UTF-8 encoded filenames
         __testrw("/file euro(\xE2\x82\xAC).txt")
         __testrw("/file male(\xE2\x99\x82).txt")
-
 
     def testAuthentication(self):
         """Require login."""
@@ -202,9 +195,6 @@ class ServerTest(unittest.TestCase):
         app.get("/file1.txt", headers=headers, status=200)
         # Non-existing resource (expect 404 NotFound)
         app.get("/not_existing_file.txt", headers=headers, status=404)
-
-
-#===============================================================================
 
 
 if __name__ == "__main__":

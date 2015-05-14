@@ -11,7 +11,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 
 .. _`Developers info`: http://wsgidav.readthedocs.org/en/latest/develop.html
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, unicode_literals
 
 import os
 import shelve
@@ -137,7 +137,7 @@ class LockStorageDict(object):
                 _logger.debug("Lock purged dangling: %s" % token)
                 self.delete(token)
                 return None
-            expire = float(lock["expire"])
+            expire = float(lock[b"expire"])
             if expire >= 0 and expire < time.time():
                 _logger.debug("Lock timed-out(%s): %s" % (expire, lockString(lock)))
                 self.delete(token)
@@ -165,35 +165,35 @@ class LockStorageDict(object):
         self._lock.acquireWrite()
         try:
             # We expect only a lock definition, not an existing lock
-            assert lock.get("token") is None
-            assert lock.get("expire") is None, "Use timeout instead of expire"
-            assert path and "/" in path
+            assert lock.get(b"token") is None
+            assert lock.get(b"expire") is None, "Use timeout instead of expire"
+            assert path and b"/" in path
 
             # Normalize root: /foo/bar
             org_path = path
             path = normalizeLockRoot(path)
-            lock["root"] = path
+            lock[b"root"] = path
 
             # Normalize timeout from ttl to expire-date
-            timeout = float(lock.get("timeout"))
+            timeout = float(lock.get(b"timeout"))
             if timeout is None:
                 timeout = LockStorageDict.LOCK_TIME_OUT_DEFAULT
             elif timeout < 0 or timeout > LockStorageDict.LOCK_TIME_OUT_MAX:
                 timeout = LockStorageDict.LOCK_TIME_OUT_MAX
 
-            lock["timeout"] = timeout
-            lock["expire"] = time.time() + timeout
+            lock[b"timeout"] = timeout
+            lock[b"expire"] = time.time() + timeout
 
             validateLock(lock)
 
             token = generateLockToken()
-            lock["token"] = token
+            lock[b"token"] = token
 
             # Store lock
             self._dict[token] = lock
 
             # Store locked path reference
-            key = "URL2TOKEN:%s" % path
+            key = b"URL2TOKEN:%s" % path
             if not key in self._dict:
                 self._dict[key] = [ token ]
             else:
@@ -229,8 +229,8 @@ class LockStorageDict(object):
         try:
             # Note: shelve dictionary returns copies, so we must reassign values:
             lock = self._dict[token]
-            lock["timeout"] = timeout
-            lock["expire"] = time.time() + timeout
+            lock[b"timeout"] = timeout
+            lock[b"expire"] = time.time() + timeout
             self._dict[token] = lock
             self._flush()
         finally:
@@ -249,7 +249,7 @@ class LockStorageDict(object):
             if lock is None:
                 return False
             # Remove url to lock mapping
-            key = "URL2TOKEN:%s" % lock.get("root")
+            key = b"URL2TOKEN:%s" % lock.get(b"root")
             if key in self._dict:
 #                _logger.debug("    delete token %s from url %s" % (token, lock.get("root")))
                 tokList = self._dict[key]
@@ -285,7 +285,7 @@ class LockStorageDict(object):
         Returns:
             List of valid lock dictionaries (may be empty).
         """
-        assert path and path.startswith("/")
+        assert path and path.startswith(b"/")
         assert includeRoot or includeChildren
 
         def __appendLocks(toklist):
@@ -295,14 +295,14 @@ class LockStorageDict(object):
                 lock = self.get(token)
                 if lock:
                     if tokenOnly:
-                        lockList.append(lock["token"])
+                        lockList.append(lock[b"token"])
                     else:
                         lockList.append(lock)
 
         path = normalizeLockRoot(path)
         self._lock.acquireRead()
         try:
-            key = "URL2TOKEN:%s" % path
+            key = b"URL2TOKEN:%s" % path
             tokList = self._dict.get(key, [])
             lockList = []
             if includeRoot:

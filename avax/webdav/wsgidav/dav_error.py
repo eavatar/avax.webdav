@@ -2,7 +2,7 @@
 """
 Implements a DAVError class that is used to signal WebDAV and HTTP errors. 
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, unicode_literals
 
 import traceback
 import datetime
@@ -79,23 +79,23 @@ HTTP_NOT_EXTENDED = 510
 #===============================================================================
 # TODO: paste.httpserver may raise exceptions, if a status code is not followed by a description, so should define all of them.
 ERROR_DESCRIPTIONS = {
-    HTTP_OK: "200 OK",
-    HTTP_CREATED: "201 Created",
-    HTTP_NO_CONTENT: "204 No Content",
-    HTTP_NOT_MODIFIED: "304 Not Modified",
-    HTTP_BAD_REQUEST: "400 Bad Request",
-    HTTP_FORBIDDEN: "403 Forbidden",
-    HTTP_METHOD_NOT_ALLOWED: "405 Method Not Allowed",
-    HTTP_NOT_FOUND: "404 Not Found",
-    HTTP_CONFLICT: "409 Conflict",
-    HTTP_PRECONDITION_FAILED: "412 Precondition Failed",
-    HTTP_RANGE_NOT_SATISFIABLE: "416 Range Not Satisfiable",
-    HTTP_MEDIATYPE_NOT_SUPPORTED: "415 Media Type Not Supported",
-    HTTP_LOCKED: "423 Locked",
-    HTTP_FAILED_DEPENDENCY: "424 Failed Dependency",
-    HTTP_INTERNAL_ERROR: "500 Internal Server Error",
-    HTTP_NOT_IMPLEMENTED: "501 Not Implemented",
-    HTTP_BAD_GATEWAY: "502 Bad Gateway",
+    HTTP_OK: b"200 OK",
+    HTTP_CREATED: b"201 Created",
+    HTTP_NO_CONTENT: b"204 No Content",
+    HTTP_NOT_MODIFIED: b"304 Not Modified",
+    HTTP_BAD_REQUEST: b"400 Bad Request",
+    HTTP_FORBIDDEN: b"403 Forbidden",
+    HTTP_METHOD_NOT_ALLOWED: b"405 Method Not Allowed",
+    HTTP_NOT_FOUND: b"404 Not Found",
+    HTTP_CONFLICT: b"409 Conflict",
+    HTTP_PRECONDITION_FAILED: b"412 Precondition Failed",
+    HTTP_RANGE_NOT_SATISFIABLE: b"416 Range Not Satisfiable",
+    HTTP_MEDIATYPE_NOT_SUPPORTED: b"415 Media Type Not Supported",
+    HTTP_LOCKED: b"423 Locked",
+    HTTP_FAILED_DEPENDENCY: b"424 Failed Dependency",
+    HTTP_INTERNAL_ERROR: b"500 Internal Server Error",
+    HTTP_NOT_IMPLEMENTED: b"501 Not Implemented",
+    HTTP_BAD_GATEWAY: b"502 Bad Gateway",
     }
 
 #===============================================================================
@@ -105,11 +105,11 @@ ERROR_DESCRIPTIONS = {
 #===============================================================================
 
 ERROR_RESPONSES = {
-    HTTP_BAD_REQUEST: "An invalid request was specified",
-    HTTP_NOT_FOUND: "The specified resource was not found",
-    HTTP_FORBIDDEN: "Access denied to the specified resource",
-    HTTP_INTERNAL_ERROR: "An internal server error occurred",
-    HTTP_NOT_IMPLEMENTED: "Not Implemented",
+    HTTP_BAD_REQUEST: b"An invalid request was specified",
+    HTTP_NOT_FOUND: b"The specified resource was not found",
+    HTTP_FORBIDDEN: b"Access denied to the specified resource",
+    HTTP_INTERNAL_ERROR: b"An internal server error occurred",
+    HTTP_NOT_IMPLEMENTED: b"Not Implemented",
     }
 
 
@@ -118,11 +118,11 @@ ERROR_RESPONSES = {
 # http://www.webdav.org/specs/rfc4918.html#precondition.postcondition.xml.elements
 #===============================================================================
 
-PRECONDITION_CODE_ProtectedProperty = "{DAV:}cannot-modify-protected-property"
-PRECONDITION_CODE_MissingLockToken = "{DAV:}lock-token-submitted"
-PRECONDITION_CODE_LockTokenMismatch = "{DAV:}lock-token-matches-request-uri"
-PRECONDITION_CODE_LockConflict = "{DAV:}no-conflicting-lock"
-PRECONDITION_CODE_PropfindFiniteDepth = "{DAV:}propfind-finite-depth"
+PRECONDITION_CODE_ProtectedProperty = b"{DAV:}cannot-modify-protected-property"
+PRECONDITION_CODE_MissingLockToken = b"{DAV:}lock-token-submitted"
+PRECONDITION_CODE_LockTokenMismatch = b"{DAV:}lock-token-matches-request-uri"
+PRECONDITION_CODE_LockConflict = b"{DAV:}no-conflicting-lock"
+PRECONDITION_CODE_PropfindFiniteDepth = b"{DAV:}propfind-finite-depth"
 
 
 class DAVErrorCondition(object):
@@ -131,10 +131,10 @@ class DAVErrorCondition(object):
         self.hrefs = []
         
     def __str__(self):
-        return "%s(%s)" % (self.conditionCode, self.hrefs)
+        return b"%s(%s)" % (self.conditionCode, self.hrefs)
     
     def add_href(self, href):
-        assert href.startswith("/")
+        assert href.startswith(b"/")
         assert self.conditionCode in (PRECONDITION_CODE_LockConflict,
                                       PRECONDITION_CODE_MissingLockToken)
         if not href in self.hrefs:
@@ -143,10 +143,10 @@ class DAVErrorCondition(object):
     def as_xml(self):
         if self.conditionCode == PRECONDITION_CODE_MissingLockToken:
             assert len(self.hrefs) > 0, "lock-token-submitted requires at least one href"
-        errorEL = etree.Element("{DAV:}error")
+        errorEL = etree.Element(b"{DAV:}error")
         condEL = etree.SubElement(errorEL, self.conditionCode)
         for href in self.hrefs:
-            etree.SubElement(condEL, "{DAV:}href").text = href
+            etree.SubElement(condEL, b"{DAV:}href").text = href
         return errorEL
     
     def as_string(self):
@@ -172,7 +172,7 @@ class DAVError(Exception):
         assert self.errcondition is None or type(self.errcondition) is DAVErrorCondition
 
     def __repr__(self):
-        return "DAVError(%s)" % self.getUserInfo()
+        return b"DAVError(%s)" % self.getUserInfo()
     
     def __str__(self): # Required for 2.4
         return self.__repr__()
@@ -180,53 +180,53 @@ class DAVError(Exception):
     def getUserInfo(self):
         """Return readable string."""
         if self.value in ERROR_DESCRIPTIONS:
-            s = "%s" % ERROR_DESCRIPTIONS[self.value]
+            s = b"%s" % ERROR_DESCRIPTIONS[self.value]
         else:
-            s = "%s" % self.value
+            s = b"%s" % self.value
 
         if self.contextinfo:
-            s+= ": %s" % self.contextinfo
+            s += b": %s" % self.contextinfo
         elif self.value in ERROR_RESPONSES:
-            s += ": %s" % ERROR_RESPONSES[self.value]
+            s += b": %s" % ERROR_RESPONSES[self.value]
         
         if self.srcexception:
-            s += "\n    Source exception: '%s'" % self.srcexception
+            s += b"\n    Source exception: '%s'" % self.srcexception
 
         if self.errcondition:
-            s += "\n    Error condition: '%s'" % self.errcondition
+            s += b"\n    Error condition: '%s'" % self.errcondition
         return s
 
     def getResponsePage(self):
         """Return an tuple (content-type, response page)."""
         # If it has pre- or post-condition: return as XML response 
         if self.errcondition:
-            return ("application/xml", self.errcondition.as_string())
+            return (b"application/xml", self.errcondition.as_string())
 
         # Else return as HTML 
         status = getHttpStatusString(self)
         html = []
-        html.append("<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01//EN' 'http://www.w3.org/TR/html4/strict.dtd'>");
-        html.append("<html><head>") 
-        html.append("  <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>")
-        html.append("  <title>%s</title>" % status) 
-        html.append("</head><body>") 
-        html.append("  <h1>%s</h1>" % status) 
-        html.append("  <p>%s</p>" % cgi.escape(self.getUserInfo()))         
-#        html.append("  <hr>")
-#        html.append("  <p>%s</p>" % cgi.escape(str(datetime.datetime.now())))         
+        html.append(b"<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01//EN' 'http://www.w3.org/TR/html4/strict.dtd'>");
+        html.append(b"<html><head>")
+        html.append(b"  <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>")
+        html.append(b"  <title>%s</title>" % status)
+        html.append(b"</head><body>")
+        html.append(b"  <h1>%s</h1>" % status)
+        html.append(b"  <p>%s</p>" % cgi.escape(self.getUserInfo()))
+#        html.append(b"  <hr>")
+#        html.append(b"  <p>%s</p>" % cgi.escape(str(datetime.datetime.now())))
 #        if self._server_descriptor:
-#            respbody.append(self._server_descriptor + "<hr>")
-        html.append("<hr/>") 
-        html.append("<a href='https://github.com/mar10/wsgidav/'>WsgiDAV/%s</a> - %s" 
+#            respbody.append(self._server_descriptor + b"<hr>")
+        html.append(b"<hr/>")
+        html.append(b"<a href='https://github.com/mar10/wsgidav/'>WsgiDAV/%s</a> - %s"
                     % (__version__, cgi.escape(str(datetime.datetime.now()))))
-        html.append("</body></html>")
-        html = "\n".join(html)
-        return ("text/html", html)
+        html.append(b"</body></html>")
+        html = b"\n".join(html)
+        return (b"text/html", html)
 
 
 def getHttpStatusCode(v):
     """Return HTTP response code as integer, e.g. 204."""
-    if hasattr(v, "value"):
+    if hasattr(v, b"value"):
         return int(v.value)  # v is a DAVError
     else:  
         return int(v)
@@ -259,5 +259,5 @@ def asDAVError(e):
         traceback.print_exc()
         return DAVError(HTTP_INTERNAL_ERROR, srcexception=e)
     else:
-        return DAVError(HTTP_INTERNAL_ERROR, "%s" % e)
+        return DAVError(HTTP_INTERNAL_ERROR, b"%s" % e)
 

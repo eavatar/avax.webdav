@@ -6,8 +6,8 @@ This module serves these purposes:
 
   1. Documentation of the DAVProvider interface
   2. Common base class for all DAV providers
-  3. Default implementation for most functionality that a resource provider must
-     deliver.
+  3. Default implementation for most functionality that a resource provider
+     must deliver.
 
 If no default implementation can be provided, then all write actions generate
 FORBIDDEN errors. Read requests generate NOT_IMPLEMENTED errors.
@@ -53,7 +53,8 @@ The main purpose of the provider is to create _DAVResource objects for URLs::
 The DAVProvider takes two supporting objects:   
    
 propertyManager
-   An object that provides storage for dead properties assigned for webDAV resources.
+   An object that provides storage for dead properties assigned for webDAV
+   resources.
    
    PropertyManagers must provide the methods as described in 
    ``wsgidav.interfaces.propertymanagerinterface``
@@ -74,7 +75,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 
 .. _`Developers info`: http://wsgidav.readthedocs.org/en/latest/develop.html  
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, unicode_literals
 
 import os
 import sys
@@ -161,15 +162,19 @@ class _DAVResource(object):
     """
 
     def __init__(self, path, isCollection, environ):
-        assert path == "" or path.startswith("/")
-        self.provider = environ["wsgidav.provider"]
+        assert path == b"" or path.startswith(b"/")
+        if isinstance(path, unicode):
+            path = path.encode('utf-8')
+
+        # assert isinstance(path, str)
+        self.provider = environ[b"wsgidav.provider"]
         self.path = path
         self.isCollection = isCollection
         self.environ = environ
         self.name = util.getUriName(self.path)
     
     def __repr__(self):
-        return "%s(%r)" % (self.__class__.__name__, self.path)
+        return b"%s(%r)" % (self.__class__.__name__, self.path)
 
 #    def getContentLanguage(self):
 #        """Contains the Content-Language header returned by a GET without accept 
@@ -252,12 +257,12 @@ class _DAVResource(object):
         This default implementation returns ``{'type': '...'}``
         """
         if self.isCollection:
-            return { "type": "Directory" }
+            return {b"type": b"Directory"}
         elif os.extsep in self.name:
             ext = self.name.split(os.extsep)[-1].upper()
             if len(ext) < 5:
-                return { "type": "%s-File" % ext }
-        return { "type": "File"  }
+                return {b"type": b"%s-File" % ext}
+        return {b"type": b"File"}
         
     def getEtag(self):
         """
@@ -285,7 +290,8 @@ class _DAVResource(object):
         return None
     
     def supportRanges(self):
-        """Return True, if this non-resource supports Range on GET requests.
+        """Return True, if this non-collection resource supports Range on GET
+        requests.
 
         This method MUST be implemented by non-collections only.
         """
@@ -323,19 +329,17 @@ class _DAVResource(object):
         @param path: a UTF-8 encoded, unquoted byte string.
         @return: a UTF-8 encoded, unquoted byte string.
         """
-        if self.path in ("", "/"):
-            return "/"
+        if self.path in (b"", b"/"):
+            return b"/"
+
         # Append '/' for collections
-        if self.isCollection and not self.path.endswith("/"):
-            return self.path + "/"
-        # TODO: handle case-sensitivity, depending on OS 
-        # (FileSystemProvider could do this with os.path:
-        # (?) on unix we can assume that the path already matches exactly the case of filepath
-        #     on windows we could use path.lower() or get the real case from the file system
+        if self.isCollection and not self.path.endswith(b"/"):
+            return self.path + b"/"
         return self.path
 
     def getRefUrl(self):
-        """Return the quoted, absolute, unique URL of a resource, relative to appRoot.
+        """Return the quoted, absolute, unique URL of a resource,
+        relative to appRoot.
         
         Byte string, UTF-8 encoded, quoted.
         Starts with a '/'. Collections also have a trailing '/'.
@@ -379,8 +383,11 @@ class _DAVResource(object):
         """
         # Nautilus chokes, if href encodes '(' as '%28'
         # So we don't encode 'extra' and 'safe' characters (see rfc2068 3.2.1)
-        safe = "/" + "!*'()," + "$-_|."
-        return urllib.quote(self.provider.mountPath + self.provider.sharePath 
+        safe = b"/" + b"!*'()," + b"$-_|."
+        # assert isinstance(self.provider.mountPath, str)
+        # assert isinstance(self.provider.sharePath, str)
+        # assert isinstance(self.getPreferredPath(), str)
+        return urllib.quote(self.provider.mountPath + self.provider.sharePath
                             + self.getPreferredPath(), safe=safe)
 
 
@@ -436,18 +443,18 @@ class _DAVResource(object):
             depth : string
                 '0' | '1' | 'infinity'
         """
-        assert depth in ("0", "1", "infinity")
+        assert depth in (b"0", b"1", b"infinity")
         res = []
         if addSelf and not depthFirst:
             res.append(self)
-        if depth != "0" and self.isCollection:
+        if depth != b"0" and self.isCollection:
             for child in self.getMemberList():
                 if not child:
                     _ = self.getMemberList()
                 want = (collections and child.isCollection) or (resources and not child.isCollection)
                 if want and not depthFirst: 
                     res.append(child)
-                if child.isCollection and depth == "infinity":
+                if child.isCollection and depth == b"infinity":
                     res.extend(child.getDescendants(collections, resources, depthFirst, depth, addSelf=False))
                 if want and depthFirst: 
                     res.append(child)
@@ -480,21 +487,21 @@ class _DAVResource(object):
         ## Live properties
         propNameList = []
         
-        propNameList.append("{DAV:}resourcetype")
+        propNameList.append(b"{DAV:}resourcetype")
         
         if self.getCreationDate() is not None:
-            propNameList.append("{DAV:}creationdate")
+            propNameList.append(b"{DAV:}creationdate")
         if self.getContentLength() is not None:
             assert not self.isCollection
-            propNameList.append("{DAV:}getcontentlength")
+            propNameList.append(b"{DAV:}getcontentlength")
         if self.getContentType() is not None:
-            propNameList.append("{DAV:}getcontenttype")
+            propNameList.append(b"{DAV:}getcontenttype")
         if self.getLastModified() is not None:
-            propNameList.append("{DAV:}getlastmodified")
+            propNameList.append(b"{DAV:}getlastmodified")
         if self.getDisplayName() is not None:
-            propNameList.append("{DAV:}displayname")
+            propNameList.append(b"{DAV:}displayname")
         if self.getEtag() is not None:
-            propNameList.append("{DAV:}getetag")
+            propNameList.append(b"{DAV:}getetag")
             
         ## Locking properties 
         if self.provider.lockManager and not self.preventLocking():
@@ -527,29 +534,29 @@ class _DAVResource(object):
         This default implementation basically calls self.getPropertyNames() to 
         get the list of names, then call self.getPropertyValue on each of them.
         """
-        assert mode in ("allprop", "propname", "named")
+        assert mode in (b"allprop", b"propname", b"named")
 
-        if mode in ("allprop", "propname"):
+        if mode in (b"allprop", b"propname"):
             # TODO: 'allprop' could have nameList, when <include> option is 
             # implemented
             assert nameList is None
-            nameList = self.getPropertyNames(mode == "allprop")
+            nameList = self.getPropertyNames(mode == b"allprop")
         else:
             assert nameList is not None
 
         propList = []
-        namesOnly = (mode == "propname")
+        namesOnly = (mode == b"propname")
         for name in nameList:
             try:
                 if namesOnly:
-                    propList.append( (name, None) )
+                    propList.append((name, None))
                 else:
                     value = self.getPropertyValue(name)
-                    propList.append( (name, value) )
+                    propList.append((name, value))
             except DAVError, e:
-                propList.append( (name, e) )
+                propList.append((name, e))
             except Exception, e:
-                propList.append( (name, asDAVError(e)) )
+                propList.append((name, asDAVError(e)))
                 if self.provider.verbose >= 2:
                     traceback.print_exc(10, sys.stdout)  
                     
@@ -581,91 +588,91 @@ class _DAVResource(object):
 
         # lock properties
         lm = self.provider.lockManager     
-        if lm and propname == "{DAV:}lockdiscovery":
+        if lm and propname == b"{DAV:}lockdiscovery":
             # TODO: we return HTTP_NOT_FOUND if no lockmanager is present. Correct?
             activelocklist = lm.getUrlLockList(refUrl)
             lockdiscoveryEL = etree.Element(propname)
             for lock in activelocklist:
-                activelockEL = etree.SubElement(lockdiscoveryEL, "{DAV:}activelock")
+                activelockEL = etree.SubElement(lockdiscoveryEL, b"{DAV:}activelock")
 
-                locktypeEL = etree.SubElement(activelockEL, "{DAV:}locktype")
-                etree.SubElement(locktypeEL, "{DAV:}%s" % lock["type"])
+                locktypeEL = etree.SubElement(activelockEL, b"{DAV:}locktype")
+                etree.SubElement(locktypeEL, b"{DAV:}%s" % lock["type"])
 
-                lockscopeEL = etree.SubElement(activelockEL, "{DAV:}lockscope")
-                etree.SubElement(lockscopeEL, "{DAV:}%s" % lock["scope"])
+                lockscopeEL = etree.SubElement(activelockEL, b"{DAV:}lockscope")
+                etree.SubElement(lockscopeEL, b"{DAV:}%s" % lock[b"scope"])
                 
-                etree.SubElement(activelockEL, "{DAV:}depth").text = lock["depth"]
+                etree.SubElement(activelockEL, b"{DAV:}depth").text = lock[b"depth"]
                 # lock["owner"] is an XML string
-                ownerEL = xml_tools.stringToXML(lock["owner"])
+                ownerEL = xml_tools.stringToXML(lock[b"owner"])
 
                 activelockEL.append(ownerEL)
                 
-                timeout = lock["timeout"]
+                timeout = lock[b"timeout"]
                 if timeout < 0:
-                    timeout =  "Infinite"
+                    timeout = b"Infinite"
                 else:
-                    timeout = "Second-" + str(long(timeout - time.time())) 
-                etree.SubElement(activelockEL, "{DAV:}timeout").text = timeout
+                    timeout = b"Second-" + str(long(timeout - time.time()))
+                etree.SubElement(activelockEL, b"{DAV:}timeout").text = timeout
                 
-                locktokenEL = etree.SubElement(activelockEL, "{DAV:}locktoken")
-                etree.SubElement(locktokenEL, "{DAV:}href").text = lock["token"]
+                locktokenEL = etree.SubElement(activelockEL, b"{DAV:}locktoken")
+                etree.SubElement(locktokenEL, b"{DAV:}href").text = lock[b"token"]
 
                 # TODO: this is ugly: 
                 #       res.getPropertyValue("{DAV:}lockdiscovery")
                 #       
 #                lockRoot = self.getHref(self.provider.refUrlToPath(lock["root"]))
-                lockPath = self.provider.refUrlToPath(lock["root"])
+                lockPath = self.provider.refUrlToPath(lock[b"root"])
                 lockRes = self.provider.getResourceInst(lockPath, self.environ)
                 # FIXME: test for None
                 lockHref = lockRes.getHref()
 #                print "lockedRoot: %s -> href=%s" % (lockPath, lockHref)
 
-                lockrootEL = etree.SubElement(activelockEL, "{DAV:}lockroot")
-                etree.SubElement(lockrootEL, "{DAV:}href").text = lockHref
+                lockrootEL = etree.SubElement(activelockEL, b"{DAV:}lockroot")
+                etree.SubElement(lockrootEL, b"{DAV:}href").text = lockHref
 
             return lockdiscoveryEL            
 
-        elif lm and propname == "{DAV:}supportedlock":
+        elif lm and propname == b"{DAV:}supportedlock":
             # TODO: we return HTTP_NOT_FOUND if no lockmanager is present. Correct?
             # TODO: the lockmanager should decide about it's features
             supportedlockEL = etree.Element(propname)
 
-            lockentryEL = etree.SubElement(supportedlockEL, "{DAV:}lockentry")
-            lockscopeEL = etree.SubElement(lockentryEL, "{DAV:}lockscope")
-            etree.SubElement(lockscopeEL, "{DAV:}exclusive")
-            locktypeEL = etree.SubElement(lockentryEL, "{DAV:}locktype")
-            etree.SubElement(locktypeEL, "{DAV:}write")
+            lockentryEL = etree.SubElement(supportedlockEL, b"{DAV:}lockentry")
+            lockscopeEL = etree.SubElement(lockentryEL, b"{DAV:}lockscope")
+            etree.SubElement(lockscopeEL, b"{DAV:}exclusive")
+            locktypeEL = etree.SubElement(lockentryEL, b"{DAV:}locktype")
+            etree.SubElement(locktypeEL, b"{DAV:}write")
 
-            lockentryEL = etree.SubElement(supportedlockEL, "{DAV:}lockentry")
-            lockscopeEL = etree.SubElement(lockentryEL, "{DAV:}lockscope")
-            etree.SubElement(lockscopeEL, "{DAV:}shared")
-            locktypeEL = etree.SubElement(lockentryEL, "{DAV:}locktype")
-            etree.SubElement(locktypeEL, "{DAV:}write")
+            lockentryEL = etree.SubElement(supportedlockEL, b"{DAV:}lockentry")
+            lockscopeEL = etree.SubElement(lockentryEL, b"{DAV:}lockscope")
+            etree.SubElement(lockscopeEL, b"{DAV:}shared")
+            locktypeEL = etree.SubElement(lockentryEL, b"{DAV:}locktype")
+            etree.SubElement(locktypeEL, b"{DAV:}write")
             
             return supportedlockEL
 
-        elif propname.startswith("{DAV:}"):
+        elif propname.startswith(b"{DAV:}"):
             # Standard live property (raises HTTP_NOT_FOUND if not supported)
-            if propname == "{DAV:}creationdate" and self.getCreationDate() is not None:
+            if propname == b"{DAV:}creationdate" and self.getCreationDate() is not None:
                 # Note: uses RFC3339 format (ISO 8601)
                 return util.getRfc3339Time(self.getCreationDate())
-            elif propname == "{DAV:}getcontenttype" and self.getContentType() is not None:
+            elif propname == b"{DAV:}getcontenttype" and self.getContentType() is not None:
                 return self.getContentType()
-            elif propname == "{DAV:}resourcetype":
+            elif propname == b"{DAV:}resourcetype":
                 if self.isCollection:
                     resourcetypeEL = etree.Element(propname)
-                    etree.SubElement(resourcetypeEL, "{DAV:}collection")
+                    etree.SubElement(resourcetypeEL, b"{DAV:}collection")
                     return resourcetypeEL            
-                return ""   
-            elif propname == "{DAV:}getlastmodified" and self.getLastModified() is not None:
+                return b""
+            elif propname == b"{DAV:}getlastmodified" and self.getLastModified() is not None:
                 # Note: uses RFC1123 format
                 return util.getRfc1123Time(self.getLastModified())
-            elif propname == "{DAV:}getcontentlength" and self.getContentLength() is not None:
+            elif propname == b"{DAV:}getcontentlength" and self.getContentLength() is not None:
                 # Note: must be a numeric string
                 return str(self.getContentLength())
-            elif propname == "{DAV:}getetag" and self.getEtag() is not None:
+            elif propname == b"{DAV:}getetag" and self.getEtag() is not None:
                 return self.getEtag()
-            elif propname == "{DAV:}displayname" and self.getDisplayName() is not None:
+            elif propname == b"{DAV:}displayname" and self.getDisplayName() is not None:
                 return self.getDisplayName()
     
             # Unsupported, no persistence available, or property not found
@@ -714,7 +721,7 @@ class _DAVResource(object):
 
         # Dead property
         pm = self.provider.propManager
-        if pm and not propname.startswith("{DAV:}"):
+        if pm and not propname.startswith(b"{DAV:}"):
             refUrl = self.getRefUrl()
             if value is None:
                 return pm.removeProperty(refUrl, propname)
@@ -1293,12 +1300,12 @@ class DAVCollection(_DAVResource):
         
         `pathInfo`: is a URL relative to this object.
         """
-        if pathInfo in ("", "/"):
+        if pathInfo in (b"", b"/"):
             return self
-        assert pathInfo.startswith("/")
+        assert pathInfo.startswith(b"/")
         name, rest = util.popPath(pathInfo)
         res = self.getMember(name)
-        if res is None or rest in ("", "/"):
+        if res is None or rest in (b"", b"/"):
             return res
         return res.resolve(util.joinUri(scriptName, name), rest)
 
@@ -1313,7 +1320,7 @@ class DAVProvider(object):
     There will be only one DAVProvider instance per share (not per request).
     """
     def __init__(self):
-        self.mountPath = ""
+        self.mountPath = b""
         self.sharePath = None 
         self.lockManager = None
         self.propManager = None 
@@ -1334,7 +1341,7 @@ class DAVProvider(object):
         
         This is the value of SCRIPT_NAME, when WsgiDAVApp is called.
         """
-        assert mountPath in ("", "/") or not mountPath.endswith("/")
+        assert mountPath in (b"", b"/") or not mountPath.endswith(b"/")
         self.mountPath = mountPath
     
     def setSharePath(self, sharePath):
@@ -1343,19 +1350,19 @@ class DAVProvider(object):
         @param sharePath: a UTF-8 encoded, unquoted byte string.
         """
         if isinstance(sharePath, unicode):
-            sharePath = sharePath.encode("utf8")
-        assert sharePath == "" or sharePath.startswith("/")
-        if sharePath == "/":
-            sharePath = ""  # This allows to code 'absPath = sharePath + path'
-        assert sharePath in ("", "/") or not sharePath.endswith("/")
+            sharePath = sharePath.encode(b"utf8")
+        assert sharePath == b"" or sharePath.startswith(b"/")
+        if sharePath == b"/":
+            sharePath = b""  # This allows to code 'absPath = sharePath + path'
+        assert sharePath in (b"", b"/") or not sharePath.endswith(b"/")
         self.sharePath = sharePath
         
     def setLockManager(self, lockManager):
-        assert not lockManager or hasattr(lockManager, "checkWritePermission"), "Must be compatible with wsgidav.lock_manager.LockManager"
+        assert not lockManager or hasattr(lockManager, b"checkWritePermission"), "Must be compatible with wsgidav.lock_manager.LockManager"
         self.lockManager = lockManager
 
     def setPropManager(self, propManager):
-        assert not propManager or hasattr(propManager, "copyProperties"), "Must be compatible with wsgidav.property_manager.PropertyManager"
+        assert not propManager or hasattr(propManager, b"copyProperties"), b"Must be compatible with wsgidav.property_manager.PropertyManager"
         self.propManager = propManager
 
     def refUrlToPath(self, refUrl):

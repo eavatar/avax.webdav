@@ -11,7 +11,7 @@ See the class documentation for more info.
 Copyright (C) 2007, Heiko Wundram.
 Released under the BSD-license.
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, unicode_literals
 
 # Imports
 # -------

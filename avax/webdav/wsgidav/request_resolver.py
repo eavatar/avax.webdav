@@ -89,7 +89,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 
 .. _`Developers info`: http://wsgidav.readthedocs.org/en/latest/develop.html  
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, unicode_literals
 
 from . import util
 from .dav_error import DAVError, HTTP_NOT_FOUND
@@ -151,15 +151,15 @@ class RequestResolver(object):
         pass
 
     def __call__(self, environ, start_response):
-        path = environ["PATH_INFO"]
+        path = environ[b"PATH_INFO"]
         
         # We want to answer OPTIONS(*), even if no handler was registered for 
         # the top-level realm (e.g. required to map drive letters). 
 
-        provider = environ["wsgidav.provider"]
+        provider = environ[b"wsgidav.provider"]
 
         # Hotfix for WinXP / Vista: accept '/' for a '*'
-        if environ["REQUEST_METHOD"] == "OPTIONS" and path in ("/", "*"):
+        if environ[b"REQUEST_METHOD"] == b"OPTIONS" and path in (b"/", b"*"):
             # Answer HTTP 'OPTIONS' method on server-level.
             # From RFC 2616:
             # If the Request-URI is an asterisk ("*"), the OPTIONS request is 
@@ -170,33 +170,33 @@ class RequestResolver(object):
             # capabilities of the server. For example, this can be used to test a 
             # proxy for HTTP/1.1 compliance (or lack thereof). 
             
-            dav_compliance_level = "1,2"
+            dav_compliance_level = b"1,2"
 
             if provider is None or provider.isReadOnly() or provider.lockManager is None:
-                dav_compliance_level = "1"
+                dav_compliance_level = b"1"
 
-            headers = [("Content-Type", "text/html"),
-                       ("Content-Length", "0"),
-                       ("DAV", dav_compliance_level),
-                       ("Date", util.getRfc1123Time()),
+            headers = [(b"Content-Type", b"text/html"),
+                       (b"Content-Length", b"0"),
+                       (b"DAV", dav_compliance_level),
+                       (b"Date", util.getRfc1123Time()),
                        ]
 
-            if environ["wsgidav.config"].get("add_header_MS_Author_Via", False):
-                headers.append( ("MS-Author-Via", "DAV") )
+            if environ[b"wsgidav.config"].get(b"add_header_MS_Author_Via", False):
+                headers.append((b"MS-Author-Via", b"DAV"))
                 
-            start_response("200 OK", headers)
-            yield ""        
+            start_response(b"200 OK", headers)
+            yield b""
             return
    
         if provider is None:
             raise DAVError(HTTP_NOT_FOUND,
-                           "Could not find resource provider for '%s'" % path)
+                           b"Could not find resource provider for '%s'" % path)
 
         # Let the appropriate resource provider for the realm handle the request
         app = RequestServer(provider)
         app_iter = app(environ, start_response)
         for v in app_iter:
             yield v
-        if hasattr(app_iter, "close"):
+        if hasattr(app_iter, b"close"):
             app_iter.close()
         return

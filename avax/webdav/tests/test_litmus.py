@@ -5,14 +5,19 @@
     Run litmus against WsgiDAV server.
 """
 from tempfile import gettempdir
-from avax.webdav.wsgidav.wsgidav_app import DEFAULT_CONFIG, WsgiDAVApp
-from avax.webdav.wsgidav.fs_dav_provider import FilesystemProvider
 import os
 import unittest
 import subprocess
 from multiprocessing.process import Process
 import time
 
+from avax.repository.blocks.store import MockBlockStore
+from avax.repository.objects.store import ObjectStore
+from avax.repository.objects.repo import Repository
+
+from avax.webdav.wsgidav.wsgidav_app import DEFAULT_CONFIG, WsgiDAVApp
+from avax.webdav.wsgidav.fs_dav_provider import FilesystemProvider
+from avax.webdav.archive_provider import ArchiveProvider
 
 
 def run_wsgidav_server(with_auth, with_ssl):
@@ -22,17 +27,19 @@ def run_wsgidav_server(with_auth, with_ssl):
     share_path = os.path.join(gettempdir(), "wsgidav-test")
     if not os.path.exists(share_path):
         os.mkdir(share_path)
+    object_store = ObjectStore(MockBlockStore())
+    repository = Repository(object_store)
 
-    provider = FilesystemProvider(share_path)
+    provider = ArchiveProvider(repository, b'files')
+    fs_provider = FilesystemProvider(share_path)
 
     config = DEFAULT_CONFIG.copy()
     config.update({
         "host": "127.0.0.1",
         "port": 8080,
         "provider_mapping": {"/": provider},
-        "domaincontroller": None, # None: domain_controller.WsgiDAVDomainController(user_mapping)
         "user_mapping": {},
-        "verbose": 0,
+        "verbose": 1,
         "enable_loggers": [],
         "propsmanager": True,      # None: no property manager
         "locksmanager": True,      # True: use lock_manager.LockManager
@@ -78,7 +85,6 @@ class WsgiDAVLitmusTest(unittest.TestCase):
 
     def setUp(self):
         pass
-
 
     def tearDown(self):
         pass

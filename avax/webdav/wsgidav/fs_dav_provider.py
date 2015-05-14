@@ -13,7 +13,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 
 .. _`Developers info`: http://wsgidav.readthedocs.org/en/latest/develop.html
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, unicode_literals
 
 import os
 import shutil
@@ -43,7 +43,7 @@ class FileResource(DAVNonCollection):
         self.filestat = os.stat(self._filePath)
         # Setting the name from the file path should fix the case on Windows
         self.name = os.path.basename(self._filePath)
-        self.name = self.name.encode("utf8")
+        # self.name = self.name.encode("utf8")
 
     # Getter methods for standard live properties
     def getContentLength(self):
@@ -96,7 +96,7 @@ class FileResource(DAVNonCollection):
         # issue 57: always store as binary
 #        if contentType and contentType.startswith("text"):
 #            mode = "w"
-        _logger.debug("beginWrite: %s, %s" % (self._filePath, mode))
+        _logger.debug(b"beginWrite: %s, %s" % (self._filePath, mode))
         return file(self._filePath, mode, BUFFER_SIZE)
 
     def delete(self):
@@ -162,7 +162,7 @@ class FolderResource(DAVCollection):
         self.filestat = os.stat(self._filePath)
         # Setting the name from the file path should fix the case on Windows
         self.name = os.path.basename(self._filePath)
-        self.name = self.name.encode("utf8")
+        # self.name = self.name.encode("utf8")
 
 
     # Getter methods for standard live properties
@@ -205,7 +205,7 @@ class FolderResource(DAVCollection):
             if not os.path.isdir(fp) and not os.path.isfile(fp):
                 _logger.debug("Skipping non-file %s" % fp)
                 continue
-            name = name.encode("utf8")
+            # name = name.encode("utf8")
             nameList.append(name)
         return nameList
 
@@ -214,7 +214,7 @@ class FolderResource(DAVCollection):
 
         See DAVCollection.getMember()
         """
-        fp = os.path.join(self._filePath, name.decode("utf8"))
+        fp = os.path.join(self._filePath, name)
 #        name = name.encode("utf8")
         path = util.joinUri(self.path, name)
         if os.path.isdir(fp):
@@ -235,7 +235,7 @@ class FolderResource(DAVCollection):
 
         See DAVResource.createEmptyResource()
         """
-        assert not "/" in name
+        assert b"/" not in name
         if self.provider.readonly:
             raise DAVError(HTTP_FORBIDDEN)
         path = util.joinUri(self.path, name)
@@ -249,7 +249,7 @@ class FolderResource(DAVCollection):
 
         See DAVResource.createCollection()
         """
-        assert not "/" in name
+        assert b"/" not in name
         if self.provider.readonly:
             raise DAVError(HTTP_FORBIDDEN)
         path = util.joinUri(self.path, name)
@@ -337,7 +337,7 @@ class FilesystemProvider(DAVProvider):
     def _locToFilePath(self, path):
         """Convert resource path to a unicode absolute file path."""
         assert self.rootFolderPath is not None
-        pathInfoParts = path.strip("/").split("/")
+        pathInfoParts = path.strip(b"/").split(b"/")
         pth = os.path.join(self.rootFolderPath, *pathInfoParts)
         r = os.path.abspath(pth)
         if not r.startswith(self.rootFolderPath):

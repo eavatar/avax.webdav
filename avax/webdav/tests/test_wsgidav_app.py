@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # (c) 2009-2014 Martin Wendt and contributors; see WsgiDAV https://github.com/mar10/wsgidav
 # Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 """
@@ -12,13 +12,18 @@
 """
 
 import os
-import shutil
+import logging
 import sys
 import unittest
 
-from tempfile import gettempdir
+logging.basicConfig(level=logging.DEBUG)
+
+from avax.repository.blocks.store import MockBlockStore
+from avax.repository.objects.store import ObjectStore
+from avax.repository.objects.repo import Repository
+
 from avax.webdav.wsgidav.wsgidav_app import DEFAULT_CONFIG, WsgiDAVApp
-from avax.webdav.wsgidav.fs_dav_provider import FilesystemProvider
+from avax.webdav.archive_provider import ArchiveProvider
 
 try:
     from webtest import TestApp  #@UnresolvedImport
@@ -33,19 +38,20 @@ except ImportError:
 class ServerTest(unittest.TestCase):
     """Test wsgidav_app using paste.fixture."""
 
-    def _makeWsgiDAVApp(self, withAuthentication):
-        self.rootpath = os.path.join(gettempdir(), "wsgidav-test")
-        if not os.path.exists(self.rootpath):
-            os.mkdir(self.rootpath)
-        provider = FilesystemProvider(self.rootpath)
+    block_store = MockBlockStore()
+    object_store = ObjectStore(block_store)
+    repository = Repository(object_store)
 
+    provider = ArchiveProvider(repository, b'files')
+
+    def _makeWsgiDAVApp(self, withAuthentication):
         config = DEFAULT_CONFIG.copy()
         config.update({
-            "provider_mapping": {"/": provider},
+            "provider_mapping": {"/": ServerTest.provider},
             "user_mapping": {},
-            "verbose": 1,
-            "enable_loggers": [],
-            "propsmanager": None,      # None: no property manager
+            "verbose": 3,
+            "enable_loggers": ['avax.webdav.wsgidav.error_printer'],
+            "propsmanager": True,      # None: no property manager
             "locksmanager": True,      # True: use lock_manager.LockManager
             "domaincontroller": None,  # None: domain_controller.WsgiDAVDomainController(user_mapping)
             })
@@ -61,14 +67,14 @@ class ServerTest(unittest.TestCase):
             config["acceptdigest"] = False
             config["defaultdigest"] = False
 
-        return WsgiDAVApp(config)
+        return WsgiDAVApp(config, ServerTest.repository)
 
     def setUp(self):
         wsgi_app = self._makeWsgiDAVApp(False)
+
         self.app = TestApp(wsgi_app)
 
     def tearDown(self):
-        shutil.rmtree(unicode(self.rootpath))
         del self.app
 
     def testPreconditions(self):
@@ -144,7 +150,7 @@ class ServerTest(unittest.TestCase):
         """Handle special characters."""
         app = self.app
         uniData = u"This is a file with special characters:\n" \
-            + u"Umlaute(äöüß)\n" \
+            + u"Umlaute(Ã¤Ã¶Ã¼ÃŸ)\n" \
             + u"Euro(\u20AC)\n" \
             + u"Male(\u2642)"
 
@@ -159,7 +165,7 @@ class ServerTest(unittest.TestCase):
             assert res.body == data, "GET file content different from PUT"
 
         # filenames with umlauts
-        __testrw("/file uml(äöüß).txt")
+        __testrw("/file uml(Ã¤Ã¶Ã¼ÃŸ).txt")
         # UTF-8 encoded filenames
         __testrw("/file euro(\xE2\x82\xAC).txt")
         __testrw("/file male(\xE2\x99\x82).txt")
@@ -169,7 +175,7 @@ class ServerTest(unittest.TestCase):
         # Prepare file content (currently without authentication)
         data1 = "this is a file\nwith two lines"
         app = self.app
-        app.get("/file1.txt", status=404) # not found
+        app.get("/file1.txt", status=404)  # not found
         app.put("/file1.txt", params=data1, status=201)
         app.get("/file1.txt", status=200)
 

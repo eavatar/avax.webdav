@@ -35,7 +35,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 
 .. _`Developers info`: http://wsgidav.readthedocs.org/en/latest/develop.html  
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, unicode_literals
 
 import sys
 import random
@@ -57,7 +57,7 @@ _logger = util.getModuleLogger(__name__)
 #===============================================================================
 
 def generateLockToken():
-    return "opaquelocktoken:" + str(hex(random.getrandbits(256)))
+    return b"opaquelocktoken:" + str(hex(random.getrandbits(256)))
 
 
 def normalizeLockRoot(path):
@@ -85,29 +85,29 @@ def lockString(lockDict):
         expire = b"%s (in %s seconds)" % (util.getLogTime(lockDict["expire"]),
                                           lockDict["expire"] - time.time())
 
-    return "Lock(<%s..>, '%s', %s, %s, depth-%s, until %s" % (
-        lockDict.get("token","?"*30)[18:22], # first 4 significant token characters
-        lockDict.get("root"),
-        lockDict.get("principal"),
-        lockDict.get("scope"),
-        lockDict.get("depth"),
+    return b"Lock(<%s..>, '%s', %s, %s, depth-%s, until %s" % (
+        lockDict.get(b"token", b"?"*30)[18:22], # first 4 significant token characters
+        lockDict.get(b"root"),
+        lockDict.get(b"principal"),
+        lockDict.get(b"scope"),
+        lockDict.get(b"depth"),
         expire,
         )
 
 
 def validateLock(lock):
-    assert type(lock["root"]) is str
-    assert lock["root"].startswith("/")
-    assert lock["type"] == "write"
-    assert lock["scope"] in ("shared", "exclusive")
-    assert lock["depth"] in ("0", "infinity")
-    assert type(lock["owner"]) is str
+    assert type(lock[b"root"]) is str
+    assert lock[b"root"].startswith(b"/")
+    assert lock[b"type"] == b"write"
+    assert lock[b"scope"] in (b"shared", b"exclusive")
+    assert lock[b"depth"] in (b"0", b"infinity")
+    assert type(lock[b"owner"]) is str
     # raises TypeError:
-    timeout = float(lock["timeout"])
-    assert timeout > 0 or timeout == -1, "timeout must be positive or -1"
-    assert type(lock["principal"]) is str
-    if "token" in lock:
-        assert type(lock["token"]) is str
+    timeout = float(lock[b"timeout"])
+    assert timeout > 0 or timeout == -1, b"timeout must be positive or -1"
+    assert type(lock[b"principal"]) is str
+    if b"token" in lock:
+        assert type(lock[b"token"]) is str
 
     
 #===============================================================================
@@ -125,7 +125,7 @@ class LockManager(object):
         storage:
             LockManagerStorage object
         """
-        assert hasattr(storage, "getLockList")
+        assert hasattr(storage, b"getLockList")
         self._lock = ReadWriteLock()
         self.storage = storage
         self.storage.open()
@@ -147,19 +147,19 @@ class LockManager(object):
         
         print >>out, "%s: %s" % (self, msg)
         
-        for lock in self.storage.getLockList("/", includeRoot=True, 
+        for lock in self.storage.getLockList(b"/", includeRoot=True,
                                              includeChildren=True, 
                                              tokenOnly=False):
-            tok = lock["token"]
+            tok = lock[b"token"]
             tokenDict[tok] = lockString(lock)
-            userDict.setdefault(lock["principal"], []).append(tok)
-            ownerDict.setdefault(lock["owner"], []).append(tok)
-            urlDict.setdefault(lock["root"], []).append(tok)
+            userDict.setdefault(lock[b"principal"], []).append(tok)
+            ownerDict.setdefault(lock[b"owner"], []).append(tok)
+            urlDict.setdefault(lock[b"root"], []).append(tok)
             
 #            assert ("URL2TOKEN:" + v["root"]) in self._dict, "Inconsistency: missing URL2TOKEN:%s" % v["root"]
 #            assert v["token"] in self._dict["URL2TOKEN:" + v["root"]], "Inconsistency: missing token %s in URL2TOKEN:%s" % (v["token"], v["root"])
                 
-        print >>out, "Locks:" 
+        print >>out, b"Locks:"
         pprint(tokenDict, indent=0, width=255)
         if tokenDict:
             print >>out, "Locks by URL:" 
@@ -195,13 +195,13 @@ class LockManager(object):
         elif timeout < 0:
             timeout = -1      
         
-        lockDict = {"root": path,
-                    "type": locktype,
-                    "scope": lockscope,
-                    "depth": lockdepth,
-                    "owner": lockowner,
-                    "timeout": timeout,
-                    "principal": principal, 
+        lockDict = {b"root": path,
+                    b"type": locktype,
+                    b"scope": lockscope,
+                    b"depth": lockdepth,
+                    b"owner": lockowner,
+                    b"timeout": timeout,
+                    b"principal": principal,
                     }
         #
         self.storage.create(path, lockDict)
@@ -237,8 +237,8 @@ class LockManager(object):
         key: 
             name of lock attribute that will be returned instead of a dictionary. 
         """
-        assert key in (None, "type", "scope", "depth", "owner", "root", 
-                       "timeout", "principal", "token")
+        assert key in (None, b"type", b"scope", b"depth", b"owner", b"root",
+                       b"timeout", b"principal", b"token")
         lock = self.storage.get(token)
         if key is None or lock is None:
             return lock
@@ -250,7 +250,7 @@ class LockManager(object):
 
     def isTokenLockedByUser(self, token, principal):
         """Return True, if <token> exists, is valid, and bound to <principal>."""   
-        return self.getLock(token, "principal") == principal
+        return self.getLock(token, b"principal") == principal
 
 #    def getUrlLockList(self, url, principal=None):
     def getUrlLockList(self, url):
@@ -278,12 +278,12 @@ class LockManager(object):
                                           includeChildren=False, 
                                           tokenOnly=False)
             for l in ll:
-                if u != url and l["depth"] != "infinity":
+                if u != url and l[b"depth"] != b"infinity":
                     continue  # We only consider parents with Depth: infinity
                 # TODO: handle shared locks in some way?
 #                if l["scope"] == "shared" and lockscope == "shared" and principal != l["principal"]:
 #                    continue  # Only compatible with shared locks by other users 
-                if principal is None or principal == l["principal"]:
+                if principal is None or principal == l[b"principal"]:
                     lockList.append(l)
             u = util.getUriParent(u)
         return lockList
@@ -295,7 +295,7 @@ class LockManager(object):
 
     def isUrlLockedByToken(self, url, locktoken):
         """Check, if url (or any of it's parents) is locked by locktoken."""
-        lockUrl = self.getLock(locktoken, "root")
+        lockUrl = self.getLock(locktoken, b"root")
         return lockUrl and util.isEqualOrChildUri(lockUrl, url) 
 
     def removeAllLocksFromUrl(self, url):
@@ -303,7 +303,7 @@ class LockManager(object):
         try:
             lockList = self.getUrlLockList(url)
             for lock in lockList:
-                self.release(lock["token"])
+                self.release(lock[b"token"])
         finally:
             self._lock.release()               
 
@@ -341,9 +341,9 @@ class LockManager(object):
 
         @return: None (or raise)
         """
-        assert locktype == "write"
-        assert lockscope in ("shared", "exclusive")
-        assert lockdepth in ("0", "infinity")
+        assert locktype == b"write"
+        assert lockscope in (b"shared", b"exclusive")
+        assert lockdepth in (b"0", b"infinity")
 
         _logger.debug("checkLockPermission(%s, %s, %s, %s)" % (url, lockscope, lockdepth, principal))
 
@@ -358,18 +358,18 @@ class LockManager(object):
                 ll = self.getUrlLockList(u)
                 for l in ll:
                     _logger.debug("    check parent %s, %s" % (u, lockString(l)))
-                    if u != url and l["depth"] != "infinity":
+                    if u != url and l[b"depth"] != b"infinity":
                         # We only consider parents with Depth: infinity
                         continue
-                    elif l["scope"] == "shared" and lockscope == "shared":
+                    elif l[b"scope"] == b"shared" and lockscope == b"shared":
                         # Only compatible with shared locks (even by same principal)
                         continue   
                     # Lock conflict
                     _logger.debug(" -> DENIED due to locked parent %s" % lockString(l))
-                    errcond.add_href(l["root"])
+                    errcond.add_href(l[b"root"])
                 u = util.getUriParent(u)
     
-            if lockdepth == "infinity":
+            if lockdepth == b"infinity":
                 # Check child URLs for conflicting locks
                 childLocks = self.storage.getLockList(url, 
                                                       includeRoot=False, 
@@ -377,10 +377,10 @@ class LockManager(object):
                                                       tokenOnly=False)
 
                 for l in childLocks:
-                    assert util.isChildUri(url, l["root"])
+                    assert util.isChildUri(url, l[b"root"])
 #                    if util.isChildUri(url, l["root"]): 
                     _logger.debug(" -> DENIED due to locked child %s" % lockString(l))
-                    errcond.add_href(l["root"])
+                    errcond.add_href(l[b"root"])
         finally:
             self._lock.release()
 
@@ -418,7 +418,7 @@ class LockManager(object):
 
         @return: None or raise error
         """
-        assert depth in ("0", "infinity")
+        assert depth in (b"0", b"infinity")
         _logger.debug("checkWritePermission(%s, %s, %s, %s)" % (url, depth, tokenList, principal))
 
         # Error precondition to collect conflicting URLs
@@ -433,19 +433,19 @@ class LockManager(object):
                 _logger.debug("  checking %s" % u)
                 for l in ll:
                     _logger.debug("     l=%s" % lockString(l))
-                    if u != url and l["depth"] != "infinity":
+                    if u != url and l[b"depth"] != b"infinity":
                         # We only consider parents with Depth: inifinity
                         continue  
-                    elif principal == l["principal"] and l["token"] in tokenList:
+                    elif principal == l[b"principal"] and l[b"token"] in tokenList:
                         # User owns this lock 
                         continue  
                     else:
                         # Token is owned by principal, but not passed with lock list
                         _logger.debug(" -> DENIED due to locked parent %s" % lockString(l))
-                        errcond.add_href(l["root"])
+                        errcond.add_href(l[b"root"])
                 u = util.getUriParent(u)
     
-            if depth == "infinity":
+            if depth == b"infinity":
                 # Check child URLs for conflicting locks
                 childLocks = self.storage.getLockList(url, 
                                                       includeRoot=False, 
@@ -453,10 +453,10 @@ class LockManager(object):
                                                       tokenOnly=False)
 
                 for l in childLocks:
-                    assert util.isChildUri(url, l["root"])
+                    assert util.isChildUri(url, l[b"root"])
 #                    if util.isChildUri(url, l["root"]): 
                     _logger.debug(" -> DENIED due to locked child %s" % lockString(l))
-                    errcond.add_href(l["root"])
+                    errcond.add_href(l[b"root"])
         finally:
             self._lock.release()               
 

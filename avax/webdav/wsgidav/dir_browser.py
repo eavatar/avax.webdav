@@ -6,7 +6,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 
 .. _`Developers info`: http://wsgidav.readthedocs.org/en/latest/develop.html  
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, print_function, unicode_literals
 
 import os
 import sys
@@ -21,10 +21,10 @@ __docformat__ = "reStructuredText"
 
 
 msOfficeTypeToExtMap = {
-    "excel": ("xls", "xlt", "xlm", "xlsm", "xlsx", "xltm", "xltx"),
-    "powerpoint": ("pps", "ppt", "pptm", "pptx", "potm", "potx", "ppsm", "ppsx"),
-    "word": ("doc", "dot", "docm", "docx", "dotm", "dotx"),
-    "visio": ("vsd", "vsdm", "vsdx", "vstm", "vstx"),
+    b"excel": (b"xls", b"xlt", b"xlm", b"xlsm", b"xlsx", b"xltm", b"xltx"),
+    b"powerpoint": (b"pps", b"ppt", b"pptm", b"pptx", b"potm", b"potx", b"ppsm", b"ppsx"),
+    b"word": (b"doc", b"dot", b"docm", b"docx", b"dotm", b"dotx"),
+    b"visio": (b"vsd", b"vsdm", b"vsdx", b"vstm", b"vstx"),
 }
 msOfficeExtToTypeMap = {}
 for t, el in msOfficeTypeToExtMap.iteritems():
@@ -32,7 +32,7 @@ for t, el in msOfficeTypeToExtMap.iteritems():
         msOfficeExtToTypeMap[e] = t
 
 
-PAGE_CSS = """\
+PAGE_CSS = b"""\
     img { border: 0; padding: 0 2px; vertical-align: text-bottom; }
     th, td { padding: 2px 20px 2px 2px; }
     th { text-align: left; }
@@ -45,7 +45,7 @@ PAGE_CSS = """\
 """
 
 
-PAGE_SCRIPT = """\
+PAGE_SCRIPT = b"""\
 function onLoad() {
 //    console.log("loaded.");
 }
@@ -116,13 +116,13 @@ class WsgiDavDirBrowser(object):
         self._verbose = 2
 
     def __call__(self, environ, start_response):
-        path = environ["PATH_INFO"]
+        path = environ[b"PATH_INFO"]
         
         davres = None
-        if environ["wsgidav.provider"]:
-            davres = environ["wsgidav.provider"].getResourceInst(path, environ)
+        if environ[b"wsgidav.provider"]:
+            davres = environ[b"wsgidav.provider"].getResourceInst(path, environ)
 
-        if environ["REQUEST_METHOD"] in ("GET", "HEAD") and davres and davres.isCollection:
+        if environ[b"REQUEST_METHOD"] in (b"GET", b"HEAD") and davres and davres.isCollection:
 
 #            if "mozilla" not in environ.get("HTTP_USER_AGENT").lower():
 #                # issue 14: Nautilus sends GET on collections
@@ -133,27 +133,27 @@ class WsgiDavDirBrowser(object):
 
             if util.getContentLength(environ) != 0:
                 self._fail(HTTP_MEDIATYPE_NOT_SUPPORTED,
-                           "The server does not handle any body content.")
+                           b"The server does not handle any body content.")
             
-            if environ["REQUEST_METHOD"] == "HEAD":
+            if environ[b"REQUEST_METHOD"] == b"HEAD":
                 return util.sendStatusResponse(environ, start_response, HTTP_OK)
 
             # Support DAV mount (http://www.ietf.org/rfc/rfc4709.txt)
-            dirConfig = environ["wsgidav.config"].get("dir_browser", {})
-            if dirConfig.get("davmount") and "davmount" in environ.get("QUERY_STRING"):
+            dirConfig = environ[b"wsgidav.config"].get(b"dir_browser", {})
+            if dirConfig.get(b"davmount") and b"davmount" in environ.get(b"QUERY_STRING"):
 #                collectionUrl = davres.getHref()
                 collectionUrl = util.makeCompleteUrl(environ)
-                collectionUrl = collectionUrl.split("?")[0]
-                res = """
+                collectionUrl = collectionUrl.split(b"?")[0]
+                res = b"""
                     <dm:mount xmlns:dm="http://purl.org/NET/webdav/mount">
                         <dm:url>%s</dm:url>
                     </dm:mount>""" % (collectionUrl)
                 # TODO: support <dm:open>%s</dm:open>
 
-                start_response("200 OK", [("Content-Type", "application/davmount+xml"), 
-                                          ("Content-Length", str(len(res))),
-                                          ("Cache-Control", "private"),
-                                          ("Date", util.getRfc1123Time()),
+                start_response(b"200 OK", [(b"Content-Type", b"application/davmount+xml"),
+                                          (b"Content-Length", str(len(res))),
+                                          (b"Cache-Control", b"private"),
+                                          (b"Date", util.getRfc1123Time()),
                                           ])
                 return [ res ]
             
@@ -168,82 +168,79 @@ class WsgiDavDirBrowser(object):
         
         return self._application(environ, start_response)
 
-
     def _fail(self, value, contextinfo=None, srcexception=None, errcondition=None):
         """Wrapper to raise (and log) DAVError."""
         e = DAVError(value, contextinfo, srcexception, errcondition)
         if self._verbose >= 2:
-            print >>sys.stdout, "Raising DAVError %s" % e.getUserInfo()
+            print(b"Raising DAVError %s" % e.getUserInfo(), file=sys.stdout)
         raise e
 
-    
     def _listDirectory(self, davres, environ, start_response):
         """
         @see: http://www.webdav.org/specs/rfc4918.html#rfc.section.9.4
         """
         assert davres.isCollection
         
-        dirConfig = environ["wsgidav.config"].get("dir_browser", {})
+        dirConfig = environ[b"wsgidav.config"].get(b"dir_browser", {})
         displaypath = urllib.unquote(davres.getHref())
-        isReadOnly = environ["wsgidav.provider"].isReadOnly()
+        isReadOnly = environ[b"wsgidav.provider"].isReadOnly()
 
-        trailer = dirConfig.get("response_trailer")
+
+        trailer = dirConfig.get(b"response_trailer")
         if trailer:
-            trailer = trailer.replace("${version}", 
-                "<a href='https://github.com/mar10/wsgidav/'>WsgiDAV/%s</a>" % __version__)
-            trailer = trailer.replace("${time}", util.getRfc1123Time())
+            trailer = trailer.replace(b"${version}",
+                b"<a href='https://github.com/mar10/wsgidav/'>WsgiDAV/%s</a>" % __version__)
+            trailer = trailer.replace(b"${time}", util.getRfc1123Time())
         else:
-            trailer = ("<a href='https://github.com/mar10/wsgidav/'>WsgiDAV/%s</a> - %s" 
-                       % (__version__, util.getRfc1123Time()))
-
+            trailer = (b"%s" % (util.getRfc1123Time()))
         
         html = []
-        html.append("<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01//EN' 'http://www.w3.org/TR/html4/strict.dtd'>");
-        html.append("<html>")
-        html.append("<head>")
-        html.append("<meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>")
-        html.append("<meta name='generator' content='WsgiDAV %s'>" % __version__)
-        html.append("<title>WsgiDAV - Index of %s </title>" % displaypath)
+        html.append(b"<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01//EN' 'http://www.w3.org/TR/html4/strict.dtd'>")
+        html.append(b"<html>")
+        html.append(b"<head>")
+        html.append(b"<meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>")
+        html.append(b"<meta name='generator' content='WsgiDAV %s'>" % __version__)
+        html.append(b"<title>WsgiDAV - Index of %s </title>" % displaypath)
         
-        html.append("<script type='text/javascript'>%s</script>" % PAGE_SCRIPT)
-        html.append("<style type='text/css'>%s</style>" % PAGE_CSS)
+        html.append(b"<script type='text/javascript'>%s</script>" % PAGE_SCRIPT)
+        html.append(b"<style type='text/css'>%s</style>" % PAGE_CSS)
 
         # Special CSS to enable MS Internet Explorer behaviour
-        if dirConfig.get("ms_mount"):
-            html.append("<style type='text/css'> A {behavior: url(#default#AnchorClick);} </style>")
+        if dirConfig.get(b"ms_mount"):
+            html.append(b"<style type='text/css'> A {behavior: url(#default#AnchorClick);} </style>")
         
-        if dirConfig.get("ms_sharepoint_plugin"):
-            html.append("<object id='winFirefoxPlugin' type='application/x-sharepoint' width='0' height='0' style=''visibility: hidden;'></object>")
+        if dirConfig.get(b"ms_sharepoint_plugin"):
+            html.append(b"<object id='winFirefoxPlugin' type='application/x-sharepoint' width='0' height='0' style=''visibility: hidden;'></object>")
 
-        html.append("</head>")
-        html.append("<body onload='onLoad()'>")
+        html.append(b"</head>")
+        html.append(b"<body onload='onLoad()'>")
 
         # Title
-        html.append("<h1>Index of %s</h1>" % displaypath)
+        html.append(b"<h1>Index of %s</h1>" % displaypath)
         # Add DAV-Mount link and Web-Folder link
         links = []
-        if dirConfig.get("davmount"):
-            links.append("<a title='Open this folder in a WebDAV client.' href='%s?davmount'>Mount</a>" % util.makeCompleteUrl(environ))
-        if dirConfig.get("ms_mount"):
-            links.append("<a title='Open as Web Folder (requires Microsoft Internet Explorer)' href='' FOLDER='%s'>Open as Web Folder</a>" % util.makeCompleteUrl(environ))
-#                html.append("<a href='' FOLDER='%ssetup.py'>Open setup.py as WebDAV</a>" % util.makeCompleteUrl(environ))
+        if dirConfig.get(b"davmount"):
+            links.append(b"<a title='Open this folder in a WebDAV client.' href='%s?davmount'>Mount</a>" % util.makeCompleteUrl(environ))
+        if dirConfig.get(b"ms_mount"):
+            links.append(b"<a title='Open as Web Folder (requires Microsoft Internet Explorer)' href='' FOLDER='%s'>Open as Web Folder</a>" % util.makeCompleteUrl(environ))
+#                html.append(b"<a href='' FOLDER='%ssetup.py'>Open setup.py as WebDAV</a>" % util.makeCompleteUrl(environ))
         if links:
-            html.append("<p>%s</p>" % " &#8211; ".join(links))
+            html.append(b"<p>%s</p>" % b" &#8211; ".join(links))
 
-        html.append("<hr>")
+        html.append(b"<hr>")
         # Listing
-        html.append("<table onclick='return onClickTable(event)'>")
+        html.append(b"<table onclick='return onClickTable(event)'>")
 
-        html.append("<thead>")
-        html.append("<tr><th>Name</th> <th>Type</th> <th class='right'>Size</th> <th class='right'>Last modified</th> </tr>")
-        html.append("</thead>")
+        html.append(b"<thead>")
+        html.append(b"<tr><th>Name</th> <th>Type</th> <th class='right'>Size</th> <th class='right'>Last modified</th> </tr>")
+        html.append(b"</thead>")
             
-        html.append("<tbody>")
-        if davres.path in ("", "/"):
-            html.append("<tr><td>Top level share</td> <td></td> <td></td> <td></td> </tr>")
+        html.append(b"<tbody>")
+        if davres.path in (b"", b"/"):
+            html.append(b"<tr><td>Top level share</td> <td></td> <td></td> <td></td> </tr>")
         else:
             parentUrl = util.getUriParent(davres.getHref())
-            html.append("<tr><td><a href='" + parentUrl + "'>Parent Directory</a></td> <td></td> <td></td> <td></td> </tr>")
+            html.append(b"<tr><td><a href='" + parentUrl + b"'>Parent Directory</a></td> <td></td> <td></td> <td></td> </tr>")
 
         # Ask collection for member info list
         dirInfoList = davres.getDirectoryInfo()
@@ -251,74 +248,72 @@ class WsgiDavDirBrowser(object):
         if dirInfoList is None:
             # No pre-build info: traverse members
             dirInfoList = []
-            childList = davres.getDescendants(depth="1", addSelf=False)
+            childList = davres.getDescendants(depth=b"1", addSelf=False)
             for res in childList:
                 di = res.getDisplayInfo()
                 href = res.getHref()
-                infoDict = {"href": href,
-                            "class": "",
-                            "displayName": res.getDisplayName(),
-                            "lastModified": res.getLastModified(),
-                            "isCollection": res.isCollection,
-                            "contentLength": res.getContentLength(),
-                            "displayType": di.get("type"),
-                            "displayTypeComment": di.get("typeComment"),
+                infoDict = {b"href": href,
+                            b"class": b"",
+                            b"displayName": res.getDisplayName(),
+                            b"lastModified": res.getLastModified(),
+                            b"isCollection": res.isCollection,
+                            b"contentLength": res.getContentLength(),
+                            b"displayType": di.get(b"type"),
+                            b"displayTypeComment": di.get(b"typeComment"),
                             }
 
                 if not isReadOnly and not res.isCollection:
-                    ext = os.path.splitext(href)[1].lstrip(".").lower()
+                    ext = os.path.splitext(href)[1].lstrip(b".").lower()
                     officeType = msOfficeExtToTypeMap.get(ext)
                     if officeType:
-                        print "OT", officeType
-                        print "OT", dirConfig
-                        if dirConfig.get("ms_sharepoint_plugin"):
-                            infoDict["class"] = "msoffice"
-                        elif dirConfig.get("ms_sharepoint_urls"):
-                            infoDict["href"] = "ms-%s:ofe|u|%s" % (officeType, href)
+                        print(b"OT", officeType)
+                        print(b"OT", dirConfig)
+                        if dirConfig.get(b"ms_sharepoint_plugin"):
+                            infoDict[b"class"] = b"msoffice"
+                        elif dirConfig.get(b"ms_sharepoint_urls"):
+                            infoDict[b"href"] = b"ms-%s:ofe|u|%s" % (officeType, href)
 
                 dirInfoList.append(infoDict)
         # 
         for infoDict in dirInfoList:
-            lastModified = infoDict.get("lastModified")
+            lastModified = infoDict.get(b"lastModified")
             if lastModified is None:
-                infoDict["strModified"] = ""
+                infoDict[b"strModified"] = b""
             else:
-                infoDict["strModified"] = util.getRfc1123Time(lastModified)
+                infoDict[b"strModified"] = util.getRfc1123Time(lastModified)
             
-            infoDict["strSize"] = "-"
-            if not infoDict.get("isCollection"):
-                contentLength = infoDict.get("contentLength")
+            infoDict[b"strSize"] = b"-"
+            if not infoDict.get(b"isCollection"):
+                contentLength = infoDict.get(b"contentLength")
                 if contentLength is not None:
-                    infoDict["strSize"] = util.byteNumberString(contentLength)
+                    infoDict[b"strSize"] = util.byteNumberString(contentLength)
 
-            html.append("""\
+            html.append(b"""\
             <tr><td><a href="%(href)s" class="%(class)s">%(displayName)s</a></td>
             <td>%(displayType)s</td>
             <td class='right'>%(strSize)s</td>
             <td class='right'>%(strModified)s</td></tr>""" % infoDict)
             
-        html.append("</tbody>")
-        html.append("</table>")
+        html.append(b"</tbody>")
+        html.append(b"</table>")
 
-        html.append("<hr>") 
+        html.append(b"<hr>")
 
-        if "http_authenticator.username" in environ:
-            if environ.get("http_authenticator.username"):
-                html.append("<p>Authenticated user: '%s', realm: '%s'.</p>" 
-                              % (environ.get("http_authenticator.username"),
-                                 environ.get("http_authenticator.realm")))
+        if b"http_authenticator.username" in environ:
+            if environ.get(b"http_authenticator.username"):
+                html.append(b"<p>Authenticated user: '%s', realm: '%s'.</p>"
+                            % (environ.get(b"http_authenticator.username"),
+                               environ.get(b"http_authenticator.realm")))
 #            else:
 #                html.append("<p>Anonymous</p>")
 
         if trailer:
-            html.append("<p class='trailer'>%s</p>" % trailer)
+            html.append(b"<p class='trailer'>%s</p>" % trailer)
 
-        html.append("</body></html>")
-
-        body = "\n".join(html) 
-
-        start_response("200 OK", [("Content-Type", "text/html"), 
-                                  ("Content-Length", str(len(body))),
-                                  ("Date", util.getRfc1123Time()),
-                                  ])
-        return [ body ] 
+        html.append(b"</body></html>")
+        body = b"\n".join(html)
+        start_response(b"200 OK", [(b"Content-Type", b"text/html"),
+                                   (b"Content-Length", str(len(body))),
+                                   (b"Date", util.getRfc1123Time()),
+                                   ])
+        return [body]

@@ -39,7 +39,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 
 .. _`Developers info`: http://wsgidav.readthedocs.org/en/latest/develop.html  
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, print_function, unicode_literals
 
 import time
 import sys
@@ -50,6 +50,8 @@ import logging
 from ..wsgidav.dir_browser import WsgiDavDirBrowser
 from ..wsgidav.dav_provider import DAVProvider
 from ..wsgidav.lock_storage import LockStorageDict
+from ..repo_provider import RepositoryProvider
+from ..archive_provider import ArchiveProvider
 
 from . import util
 from .error_printer import ErrorPrinter
@@ -63,57 +65,58 @@ from .fs_dav_provider import FilesystemProvider
 
 __docformat__ = "reStructuredText"
 
+READONLY_METHODS = ['GET', 'HEAD', 'OPTIONS', 'PROPFIND', 'PROPGET', ]
+
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 
 # Use these settings, if config file does not define them (or is totally missing)
 DEFAULT_CONFIG = {
-    "mount_path": None,  # Application root, e.g. <mount_path>/<share_name>/<res_path>               
-    "provider_mapping": {},
-    "host": "localhost",
-    "port": 5080,
-    "ext_servers": [
-                   "cherrypy-bundled",
-                   "wsgidav",
-                   ],
+    b"mount_path": None,  # Application root, e.g. <mount_path>/<share_name>/<res_path>
+    b"provider_mapping": {},
+    b"host": b"localhost",
+    b"port": 5080,
+    b"ext_servers": [
+        b"cherrypy-bundled",
+        b"wsgidav",
+        ],
 
-    "add_header_MS_Author_Via": True,
+    b"add_header_MS_Author_Via": True,
 
-    "propsmanager": None,  # True: use property_manager.PropertyManager                  
-    "locksmanager": True,  # True: use lock_manager.LockManager    
+    b"propsmanager": None,  # True: use property_manager.PropertyManager
+    b"locksmanager": True,  # True: use lock_manager.LockManager
     
     # HTTP Authentication Options
-    "user_mapping": {},       # dictionary of dictionaries 
-    "domaincontroller": None, # None: domain_controller.WsgiDAVDomainController(user_mapping)
-    "acceptbasic": True,      # Allow basic authentication, True or False
-    "acceptdigest": True,     # Allow digest authentication, True or False
-    "defaultdigest": True,    # True (default digest) or False (default basic)
+    b"user_mapping": {},       # dictionary of dictionaries
+    b"domaincontroller": None, # None: domain_controller.WsgiDAVDomainController(user_mapping)
+    b"acceptbasic": True,      # Allow basic authentication, True or False
+    b"acceptdigest": True,     # Allow digest authentication, True or False
+    b"defaultdigest": True,    # True (default digest) or False (default basic)
     
-    "enable_loggers": [
+    b"enable_loggers": [
                       ],
 
     # Verbose Output
-    "verbose": 1,        # 0 - no output (excepting application exceptions)         
+    b"verbose": 1,        # 0 - no output (excepting application exceptions)
                          # 1 - show single line request summaries (for HTTP logging)
                          # 2 - show additional events
                          # 3 - show full request/response header info (HTTP Logging)
                          #     request body and GET response bodies not shown
     
-    "dir_browser": {
-        "enable": True,               # Render HTML listing for GET requests on collections
-        "response_trailer": "",       # Raw HTML code, appended as footer
-        "davmount": False,            # Send <dm:mount> response if request URL contains '?davmount'
-        "ms_mount": False,            # Add an 'open as webfolder' link (requires Windows)
-        "ms_sharepoint_plugin": True, # Invoke MS Offce documents for editing using WebDAV
-        "ms_sharepoint_urls": False,  # Prepend 'ms-word:ofe|u|' to URL for MS Offce documents
+    b"dir_browser": {
+        b"enable": True,               # Render HTML listing for GET requests on collections
+        b"response_trailer": b"",       # Raw HTML code, appended as footer
+        b"davmount": False,            # Send <dm:mount> response if request URL contains '?davmount'
+        b"ms_mount": False,            # Add an 'open as webfolder' link (requires Windows)
+        b"ms_sharepoint_plugin": True, # Invoke MS Offce documents for editing using WebDAV
+        b"ms_sharepoint_urls": False,  # Prepend 'ms-word:ofe|u|' to URL for MS Offce documents
     },
 }
 
 
 def _checkConfig(config):
-    mandatoryFields = ["provider_mapping",
-                       ]
+    mandatoryFields = [b"provider_mapping", ]
+
     for field in mandatoryFields:
         if field not in config:
             raise ValueError(
@@ -125,18 +128,18 @@ class WsgiDAVApp(object):
     def __init__(self, config, repository=None):
         self.config = config
         self.repository = repository
-
-        util.initLogging(config["verbose"], config.get("enable_loggers", []))
+        self.repo_provider = RepositoryProvider(repository)
+        util.initLogging(config[b"verbose"], config.get(b"enable_loggers", []))
         
         util.log("Default encoding: %s (file system: %s)" % (sys.getdefaultencoding(), sys.getfilesystemencoding()))
         
         # Evaluate configuration and set defaults
         _checkConfig(config)
-        provider_mapping = self.config["provider_mapping"]
+        provider_mapping = self.config[b"provider_mapping"]
 #        response_trailer = config.get("response_trailer", "")
-        self._verbose = config.get("verbose", 2)
+        self._verbose = config.get(b"verbose", 2)
 
-        lockStorage = config.get("locksmanager") 
+        lockStorage = config.get(b"locksmanager")
         if lockStorage is True:
             lockStorage = LockStorageDict()
             
@@ -145,27 +148,27 @@ class WsgiDAVApp(object):
         else:
             locksManager = LockManager(lockStorage)
 
-        propsManager = config.get("propsmanager")     
+        propsManager = config.get(b"propsmanager")
         if not propsManager:
             # Normalize False, 0 to None
             propsManager = None
         elif propsManager is True:
             propsManager = PropertyManager()     
 
-        mount_path = config.get("mount_path")
+        mount_path = config.get(b"mount_path")
          
-        user_mapping = self.config.get("user_mapping", {})
-        domainController = config.get("domaincontroller") or WsgiDAVDomainController(user_mapping)
+        user_mapping = self.config.get(b"user_mapping", {})
+        domainController = config.get(b"domaincontroller") or WsgiDAVDomainController(user_mapping)
         isDefaultDC = isinstance(domainController, WsgiDAVDomainController)
 
         # authentication fields
-        authacceptbasic = config.get("acceptbasic", True)
-        authacceptdigest = config.get("acceptdigest", True)
-        authdefaultdigest = config.get("defaultdigest", True)
+        authacceptbasic = config.get(b"acceptbasic", True)
+        authacceptdigest = config.get(b"acceptdigest", True)
+        authdefaultdigest = config.get(b"defaultdigest", True)
         
         # Check configuration for NTDomainController
         # We don't use 'isinstance', because include would fail on non-windows boxes.
-        wdcName = "NTDomainController"
+        wdcName = b"NTDomainController"
         if domainController.__class__.__name__ == wdcName:
             if authacceptdigest or authdefaultdigest or not authacceptbasic:
                 util.warn("WARNING: %s requires basic authentication.\n\tSet acceptbasic=True, acceptdigest=False, defaultdigest=False" % wdcName)
@@ -174,7 +177,7 @@ class WsgiDAVApp(object):
         self.providerMap = {}
         for (share, provider) in provider_mapping.items():
             # Make sure share starts with, or is, '/' 
-            share = "/" + share.strip("/")
+            share = b"/" + share.strip(b"/")
 
             # We allow a simple string as 'provider'. In this case we interpret 
             # it as a file system root folder that is published. 
@@ -200,10 +203,10 @@ class WsgiDAVApp(object):
             logger.debug("Registered DAV providers:")
 
             for share, provider in self.providerMap.items():
-                hint = ""
+                hint = b""
                 if isDefaultDC and not user_mapping.get(share):
-                    hint = " (anonymous)"
-                print "  Share '%s': %s%s" % (share, provider, hint)
+                    hint = b" (anonymous)"
+                print("  Share '%s': %s%s" % (share, provider, hint))
 
         # If the default DC is used, emit a warning for anonymous realms
         if isDefaultDC and self._verbose >= 1:
@@ -215,15 +218,15 @@ class WsgiDAVApp(object):
         # Define WSGI application stack
         application = RequestResolver()
         
-        if config.get("dir_browser") and config["dir_browser"].get("enable", True):
-            application = config["dir_browser"].get("app_class", WsgiDavDirBrowser)(application)
+        if config.get(b"dir_browser") and config[b"dir_browser"].get(b"enable", True):
+            application = config[b"dir_browser"].get(b"app_class", WsgiDavDirBrowser)(application)
 
         application = HTTPAuthenticator(application, 
                                         domainController, 
                                         authacceptbasic, 
                                         authacceptdigest, 
                                         authdefaultdigest)      
-        application = ErrorPrinter(application, catchall=False)
+        application = ErrorPrinter(application, catchall=True)
 
         application = WsgiDavDebugFilter(application, config)
         
@@ -236,6 +239,7 @@ class WsgiDAVApp(object):
         # We unquote PATH_INFO here, although this should already be done by
         # the server.
         path = urllib.unquote(environ[b"PATH_INFO"])
+
         # issue 22: Pylons sends root as u'/' 
         if isinstance(path, unicode):
             util.log("Got unicode PATH_INFO: %r" % path)
@@ -256,15 +260,25 @@ class WsgiDAVApp(object):
         for r in shareList:
             # @@: Case sensitivity should be an option of some sort here; 
             #     os.path.normpath might give the preferred case for a filename.
-            if r == "/":
+            if r == b"/":
                 share = r
                 break
-            elif path.upper() == r.upper() or path.upper().startswith(r.upper() + "/"):
+            elif path.upper() == r.upper() or path.upper().startswith(r.upper() + b"/"):
                 share = r
                 break
         
         provider = self.providerMap.get(share)
-        
+
+        # bind a new batch to this request.
+        if isinstance(provider, ArchiveProvider):
+            method = environ[b"REQUEST_METHOD"]
+            logger.debug("method: %s", method)
+            readonly = method in READONLY_METHODS
+            if readonly:
+                logger.debug("Readonly request: %s", method)
+            batch = provider.archive.begin_batch(readonly=readonly)
+            environ[b'batch'] = batch
+
         # Note: we call the next app, even if provider is None, because OPTIONS 
         #       must still be handled.
         #       All other requests will result in '404 Not Found'  
@@ -275,7 +289,7 @@ class WsgiDAVApp(object):
         
         # Transform SCRIPT_NAME and PATH_INFO
         # (Since path and share are unquoted, this also fixes quoted values.)
-        if share == "/" or not share:
+        if share == b"/" or not share:
             environ[b"PATH_INFO"] = path
         else:
             environ[b"SCRIPT_NAME"] += share
@@ -286,11 +300,11 @@ class WsgiDAVApp(object):
         # See http://mail.python.org/pipermail/web-sig/2007-January/002475.html
         # for some clarification about SCRIPT_NAME/PATH_INFO format
         # SCRIPT_NAME starts with '/' or is empty
-        assert environ[b"SCRIPT_NAME"] == "" or environ[b"SCRIPT_NAME"].startswith("/")
+        assert environ[b"SCRIPT_NAME"] == b"" or environ[b"SCRIPT_NAME"].startswith(b"/")
         # SCRIPT_NAME must not have a trailing '/'
-        assert environ[b"SCRIPT_NAME"] in ("", "/") or not environ[b"SCRIPT_NAME"].endswith("/")
+        assert environ[b"SCRIPT_NAME"] in (b"", b"/") or not environ[b"SCRIPT_NAME"].endswith(b"/")
         # PATH_INFO starts with '/'
-        assert environ["PATH_INFO"] == b"" or environ["PATH_INFO"].startswith(b"/")
+        assert environ[b"PATH_INFO"] == b"" or environ[b"PATH_INFO"].startswith(b"/")
 
         start_time = time.time()
 
@@ -305,19 +319,19 @@ class WsgiDAVApp(object):
             # Check if we should close the connection after this request. 
             # http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
             forceCloseConnection = False
-            currentContentLength = headerDict.get("content-length") 
-            statusCode = int(status.split(" ", 1)[0]) 
+            currentContentLength = headerDict.get(b"content-length")
+            statusCode = int(status.split(b" ", 1)[0])
             contentLengthRequired = (environ[b"REQUEST_METHOD"] != b"HEAD"
                                      and statusCode >= 200
-                                     and not statusCode in (204, 304))  
+                                     and statusCode not in (204, 304))
 #            print environ["REQUEST_METHOD"], statusCode, contentLengthRequired
-            if contentLengthRequired and currentContentLength in (None, ""):
+            if contentLengthRequired and currentContentLength in (None, b""):
                 # A typical case: a GET request on a virtual resource, for which  
                 # the provider doesn't know the length 
                 util.warn("Missing required Content-Length header in %s-response: closing connection" % statusCode)
                 forceCloseConnection = True
             elif not type(currentContentLength) is str:
-                util.warn("Invalid Content-Length header in response (%r): closing connection" % headerDict.get("content-length"))
+                util.warn("Invalid Content-Length header in response (%r): closing connection" % headerDict.get(b"content-length"))
                 forceCloseConnection = True
             
             # HOTFIX for Vista and Windows 7 (issue 13, issue 23)
@@ -332,58 +346,58 @@ class WsgiDAVApp(object):
             # Make sure the socket is not reused, unless we are 100% sure all 
             # current input was consumed
             if(util.getContentLength(environ) != 0 
-               and not environ.get("wsgidav.all_input_read")):
+               and not environ.get(b"wsgidav.all_input_read")):
                 util.warn("Input stream not completely consumed: closing connection")
                 forceCloseConnection = True
                 
-            if forceCloseConnection and headerDict.get("connection") != "close":    
+            if forceCloseConnection and headerDict.get(b"connection") != b"close":
                 util.warn("Adding 'Connection: close' header")
                 response_headers.append((b"Connection", b"close"))
             
             # Log request
             if self._verbose >= 1:
-                userInfo = environ.get("http_authenticator.username")
+                userInfo = environ.get(b"http_authenticator.username")
                 if not userInfo:
-                    userInfo = "(anonymous)"
-                threadInfo = ""
+                    userInfo = b"(anonymous)"
+                threadInfo = b""
                 if self._verbose >= 1:
-                    threadInfo = "<%s> " % threading._get_ident()
+                    threadInfo = b"<%s> " % threading._get_ident()
                 extra = []
-                if "HTTP_DESTINATION" in environ:
-                    extra.append('dest="%s"' % environ.get("HTTP_DESTINATION"))
-                if environ.get("CONTENT_LENGTH", "") != "":
-                    extra.append("length=%s" % environ.get("CONTENT_LENGTH"))
-                if "HTTP_DEPTH" in environ:
-                    extra.append("depth=%s" % environ.get("HTTP_DEPTH"))
-                if "HTTP_RANGE" in environ:
-                    extra.append("range=%s" % environ.get("HTTP_RANGE"))
-                if "HTTP_OVERWRITE" in environ:
-                    extra.append("overwrite=%s" % environ.get("HTTP_OVERWRITE"))
-                if self._verbose >= 1 and "HTTP_EXPECT" in environ:
-                    extra.append('expect="%s"' % environ.get("HTTP_EXPECT"))
-                if self._verbose >= 2 and "HTTP_CONNECTION" in environ:
-                    extra.append('connection="%s"' % environ.get("HTTP_CONNECTION"))
-                if self._verbose >= 2 and "HTTP_USER_AGENT" in environ:
-                    extra.append('agent="%s"' % environ.get("HTTP_USER_AGENT"))
-                if self._verbose >= 2 and "HTTP_TRANSFER_ENCODING" in environ:
-                    extra.append('transfer-enc=%s' % environ.get("HTTP_TRANSFER_ENCODING"))
+                if b"HTTP_DESTINATION" in environ:
+                    extra.append(b'dest="%s"' % environ.get(b"HTTP_DESTINATION"))
+                if environ.get(b"CONTENT_LENGTH", b"") != b"":
+                    extra.append(b"length=%s" % environ.get(b"CONTENT_LENGTH"))
+                if b"HTTP_DEPTH" in environ:
+                    extra.append(b"depth=%s" % environ.get(b"HTTP_DEPTH"))
+                if b"HTTP_RANGE" in environ:
+                    extra.append(b"range=%s" % environ.get(b"HTTP_RANGE"))
+                if b"HTTP_OVERWRITE" in environ:
+                    extra.append(b"overwrite=%s" % environ.get(b"HTTP_OVERWRITE"))
+                if self._verbose >= 1 and b"HTTP_EXPECT" in environ:
+                    extra.append(b'expect="%s"' % environ.get(b"HTTP_EXPECT"))
+                if self._verbose >= 2 and b"HTTP_CONNECTION" in environ:
+                    extra.append(b'connection="%s"' % environ.get(b"HTTP_CONNECTION"))
+                if self._verbose >= 2 and b"HTTP_USER_AGENT" in environ:
+                    extra.append(b'agent="%s"' % environ.get(b"HTTP_USER_AGENT"))
+                if self._verbose >= 2 and b"HTTP_TRANSFER_ENCODING" in environ:
+                    extra.append(b'transfer-enc=%s' % environ.get(b"HTTP_TRANSFER_ENCODING"))
                 if self._verbose >= 1:
-                    extra.append('elap=%.3fsec' % (time.time() - start_time))
-                extra = ", ".join(extra)
+                    extra.append(b'elap=%.3fsec' % (time.time() - start_time))
+                extra = b", ".join(extra)
                         
 #               This is the CherryPy format:     
 #                127.0.0.1 - - [08/Jul/2009:17:25:23] "GET /loginPrompt?redirect=/renderActionList%3Frelation%3Dpersonal%26key%3D%26filter%3DprivateSchedule&reason=0 HTTP/1.1" 200 1944 "http://127.0.0.1:8002/command?id=CMD_Schedule" "Mozilla/5.0 (Windows; U; Windows NT 6.0; de; rv:1.9.1) Gecko/20090624 Firefox/3.5"
 #                print >>sys.stderr, '%s - %s - [%s] "%s" %s -> %s' % (
-                print >>sys.stdout, '%s - %s - [%s] "%s" %s -> %s' % (
-                                        threadInfo + environ.get("REMOTE_ADDR",""),                                                         
+                print(b'%s - %s - [%s] "%s" %s -> %s' % (
+                                        threadInfo + environ.get(b"REMOTE_ADDR", b""),
                                         userInfo,
                                         util.getLogTime(), 
-                                        environ.get("REQUEST_METHOD") + " " + environ.get("PATH_INFO", ""),
+                                        environ.get(b"REQUEST_METHOD") + b" " + environ.get(b"PATH_INFO", b""),
                                         extra, 
                                         status,
 #                                        response_headers.get(""), # response Content-Length
                                         # referer
-                                     )
+                ), file=sys.stdout)
  
             return start_response(status, response_headers, exc_info)
             
@@ -391,6 +405,13 @@ class WsgiDAVApp(object):
         app_iter = self._application(environ, _start_response_wrapper)
         for v in app_iter:
             yield v
-        if hasattr(app_iter, "close"):
+        if hasattr(app_iter, b"close"):
             app_iter.close()
+
+        # commit batch if any.
+        batch = environ.get(b'batch')
+        if batch:
+            batch.commit()
+            del environ[b'batch']
+
         return

@@ -17,7 +17,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 
 .. _`Developers info`: http://wsgidav.readthedocs.org/en/latest/develop.html  
 """
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, unicode_literals
 
 import os
 import sys
@@ -87,7 +87,7 @@ class PropertyManager(object):
         finally:
             self._lock.release()         
 
-    def _check(self, msg=""):
+    def _check(self, msg=b""):
         try:
             if not self._loaded:
                 return True
@@ -96,7 +96,7 @@ class PropertyManager(object):
 #                print "  -> %s" % self._dict[k]
 #            self._dump()
             for k, v in self._dict.items():
-                _ = "%s, %s" % (k, v)
+                _ = b"%s, %s" % (k, v)
 #            _logger.debug("%s checks ok %s" % (self.__class__.__name__, msg))
             return True
         except Exception:
@@ -106,7 +106,7 @@ class PropertyManager(object):
 #            sys.exit(-1)
             return False
 
-    def _dump(self, msg="", out=None):
+    def _dump(self, msg=b"", out=None):
         if out is None:
             out = sys.stdout
         print >>out, "%s(%s): %s" % (self.__class__.__name__, self.__repr__(), msg)

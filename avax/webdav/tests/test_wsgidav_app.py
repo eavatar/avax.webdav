@@ -42,12 +42,10 @@ class ServerTest(unittest.TestCase):
     object_store = ObjectStore(block_store)
     repository = Repository(object_store)
 
-    provider = ArchiveProvider(repository, b'files')
-
     def _makeWsgiDAVApp(self, withAuthentication):
         config = DEFAULT_CONFIG.copy()
         config.update({
-            "provider_mapping": {"/": ServerTest.provider},
+            "provider_mapping": {},
             "user_mapping": {},
             "verbose": 3,
             "enable_loggers": ['avax.webdav.wsgidav.error_printer'],
@@ -106,45 +104,45 @@ class ServerTest(unittest.TestCase):
         data3 = "".join(lines)
 
         # Remove old test files
-        app.delete("/file1.txt", expect_errors=True)
-        app.delete("/file2.txt", expect_errors=True)
-        app.delete("/file3.txt", expect_errors=True)
+        app.delete("/Document/file1.txt", expect_errors=True)
+        app.delete("/Document/file2.txt", expect_errors=True)
+        app.delete("/Document/file3.txt", expect_errors=True)
 
         # Access unmapped resource (expect '404 Not Found')
-        app.delete("/file1.txt", status=404)
-        app.get("/file1.txt", status=404)
+        app.delete("/Document/file1.txt", status=404)
+        app.get("/Document/file1.txt", status=404)
 
         # PUT a small file (expect '201 Created')
-        app.put("/file1.txt", params=data1, status=201)
+        app.put("/Document/file1.txt", params=data1, status=201)
 
-        res = app.get("/file1.txt", status=200)
+        res = app.get("/Document/file1.txt", status=200)
         assert res.body == data1, "GET file content different from PUT"
 
         # PUT overwrites a small file (expect '204 No Content')
-        app.put("/file1.txt", params=data2, status=204)
+        app.put("/Document/file1.txt", params=data2, status=204)
 
-        res = app.get("/file1.txt", status=200)
+        res = app.get("/Document/file1.txt", status=200)
         assert res.body == data2, "GET file content different from PUT"
 
         # PUT writes a big file (expect '201 Created')
-        app.put("/file2.txt", params=data3, status=201)
+        app.put("/Document/file2.txt", params=data3, status=201)
 
-        res = app.get("/file2.txt", status=200)
+        res = app.get("/Document/file2.txt", status=200)
         assert res.body == data3, "GET file content different from PUT"
 
         # Request must not contain a body (expect '415 Media Type Not Supported')
-        app.get("/file1.txt",
+        app.get("/Document/file1.txt",
                 headers={"Content-Length": str(len(data1))},
                 params=data1,
                 status=415)
 
         # Delete existing resource (expect '204 No Content')
-        app.delete("/file1.txt", status=204)
+        app.delete("/Document/file1.txt", status=204)
         # Get deleted resource (expect '404 Not Found')
-        app.get("/file1.txt", status=404)
+        app.get("/Document/file1.txt", status=404)
 
         # PUT a small file (expect '201 Created')
-        app.put("/file1.txt", params=data1, status=201)
+        app.put("/Document/file1.txt", params=data1, status=201)
 
     def testEncoding(self):
         """Handle special characters."""
@@ -165,19 +163,19 @@ class ServerTest(unittest.TestCase):
             assert res.body == data, "GET file content different from PUT"
 
         # filenames with umlauts
-        __testrw("/file uml(äöüß).txt")
+        __testrw("/Document/file uml(äöüß).txt")
         # UTF-8 encoded filenames
-        __testrw("/file euro(\xE2\x82\xAC).txt")
-        __testrw("/file male(\xE2\x99\x82).txt")
+        __testrw("/Document/file euro(\xE2\x82\xAC).txt")
+        __testrw("/Document/file male(\xE2\x99\x82).txt")
 
     def testAuthentication(self):
         """Require login."""
         # Prepare file content (currently without authentication)
         data1 = "this is a file\nwith two lines"
         app = self.app
-        app.get("/file1.txt", status=404)  # not found
-        app.put("/file1.txt", params=data1, status=201)
-        app.get("/file1.txt", status=200)
+        app.get("/Document/file1.txt", status=404)  # not found
+        app.put("/Document/file1.txt", params=data1, status=201)
+        app.get("/Document/file1.txt", status=200)
 
         # Re-create test app with authentication
         wsgi_app = self._makeWsgiDAVApp(True)
@@ -185,9 +183,9 @@ class ServerTest(unittest.TestCase):
 
         # Anonymous access must fail (expect 401 Not Authorized)
         # Existing resource
-        app.get("/file1.txt", status=401)
+        app.get("/Document/file1.txt", status=401)
         # Non-existing resource
-        app.get("/not_existing_file.txt", status=401)
+        app.get("/Document/not_existing_file.txt", status=401)
         # Root container
         app.get("/", status=401)
 
@@ -198,9 +196,9 @@ class ServerTest(unittest.TestCase):
         headers = {"Authorization": "Basic %s" % creds,
                    }
         # Existing resource
-        app.get("/file1.txt", headers=headers, status=200)
+        app.get("/Document/file1.txt", headers=headers, status=200)
         # Non-existing resource (expect 404 NotFound)
-        app.get("/not_existing_file.txt", headers=headers, status=404)
+        app.get("/Document/not_existing_file.txt", headers=headers, status=404)
 
 
 if __name__ == "__main__":

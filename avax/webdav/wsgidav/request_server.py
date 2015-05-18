@@ -9,7 +9,7 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 from __future__ import absolute_import, division, unicode_literals
 
 import urllib
-import traceback
+from pprint import pprint
 from urlparse import urlparse
 
 from ..wsgidav.dav_error import HTTP_OK, HTTP_LENGTH_REQUIRED
@@ -41,7 +41,8 @@ __docformat__ = "reStructuredText"
 
 _logger = util.getModuleLogger(__name__)
 
-BLOCK_SIZE = 8192
+# BLOCK_SIZE = 8192
+BLOCK_SIZE = 65536
 
 
 class RequestServer(object):
@@ -121,7 +122,6 @@ class RequestServer(object):
         else:  
             e = DAVError(value, contextinfo, srcexception, errcondition)
         util.log("Raising DAVError %s" % e.getUserInfo())
-        util.log('Error in processing request: %r' % e)
         raise e
 
     def _sendResponse(self, environ, start_response, rootRes, successCode, errorList):
@@ -240,6 +240,8 @@ class RequestServer(object):
         """
         path = environ[b"PATH_INFO"]
         res = self._davProvider.getResourceInst(path, environ)
+        util.log("Use repository: %r" % self._davProvider)
+        util.log("        path: %r" % path)
 
         # RFC: By default, the PROPFIND method without a Depth header MUST act 
         # as if a "Depth: infinity" header was included.
@@ -254,8 +256,11 @@ class RequestServer(object):
                        errcondition=PRECONDITION_CODE_PropfindFiniteDepth)    
 
         if res is None:
+            util.log('Resource not found for path: %s' % path)
             self._fail(HTTP_NOT_FOUND)
-        
+
+        util.log("Resource type: %r" % res)
+
         if environ.get(b"wsgidav.debug_break"):
             pass # break point
 
@@ -298,9 +303,10 @@ class RequestServer(object):
 
         # --- Build list of resource URIs 
         
-        reslist = res.getDescendants(depth=environ[b"HTTP_DEPTH"], addSelf=True)
-#        if environ["wsgidav.verbose"] >= 3:
-#            pprint(reslist, indent=4)
+        reslist = res.getDescendants(depth=environ[b"HTTP_DEPTH"],
+                                     addSelf=True)
+        if environ["wsgidav.verbose"] >= 3:
+            pprint(reslist, indent=4)
         
         multistatusEL = xml_tools.makeMultistatusEL()
         responsedescription = []
@@ -591,10 +597,13 @@ class RequestServer(object):
         """
         @see: http://www.webdav.org/specs/rfc4918.html#METHOD_PUT
         """
+        _logger.info("Enter doPUT()")
+
         path = environ[b"PATH_INFO"]
         provider = self._davProvider
         res = provider.getResourceInst(path, environ)
-        parentRes = provider.getResourceInst(util.getUriParent(path), environ)
+        parent_path = util.getUriParent(path)
+        parentRes = provider.getResourceInst(parent_path, environ)
         
         isnewfile = res is None
 
@@ -716,6 +725,7 @@ class RequestServer(object):
                     contentremain -= len(readbuffer)
                 
                 if contentremain == 0:
+                    _logger.info("All input read.")
                     environ[b"wsgidav.all_input_read"] = 1
                      
             fileobj.close()
@@ -1164,7 +1174,7 @@ class RequestServer(object):
                                   (b"Lock-Token", lock[b"token"]),
                                   (b"Date", util.getRfc1123Time()),
                                   ])
-        return [ xml ]
+        return [xml]
 
         # TODO: LOCK may also fail with HTTP_FORBIDDEN.
         #       In this case we should return 207 multi-status.

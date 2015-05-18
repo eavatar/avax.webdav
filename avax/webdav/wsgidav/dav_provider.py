@@ -426,7 +426,7 @@ class _DAVResource(object):
         raise NotImplementedError()
 
     def getDescendants(self, collections=True, resources=True, 
-                       depthFirst=False, depth="infinity", addSelf=False):
+                       depthFirst=False, depth=b"infinity", addSelf=False):
         """Return a list _DAVResource objects of a collection (children, 
         grand-children, ...).
 

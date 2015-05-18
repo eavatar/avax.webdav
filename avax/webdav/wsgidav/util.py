@@ -41,7 +41,7 @@ except ImportError:
 
 #import xml_tools
 ## Trick PyDev to do intellisense and don't produce warnings:
-from .xml_tools import etree #@UnusedImport
+from ..wsgidav.xml_tools import etree #@UnusedImport
 from ..wsgidav.dav_error import DAVError, HTTP_PRECONDITION_FAILED, HTTP_NOT_MODIFIED,\
     HTTP_NO_CONTENT, HTTP_CREATED, getHttpStatusString, HTTP_BAD_REQUEST,\
     HTTP_OK
@@ -558,7 +558,6 @@ class SubAppStartResponse(object):
         self.__exc_info = exc_info
 
 
-
 #===============================================================================
 # URLs
 #===============================================================================
@@ -773,6 +772,7 @@ def sendMultiStatusResponse(environ, start_response, multistatusEL):
     # Hotfix for Windows XP 
     # PROPFIND XML response is not recognized, when pretty_print = True!
     # (Vista and others would accept this).
+    #xml_data = xmlToString(multistatusEL, pretty_print=False)
     xml_data = xmlToString(multistatusEL, pretty_print=False)
     # if isinstance(xml_data, unicode):
     #    xml_data = xml_data.encode('utf-8')
@@ -1192,43 +1192,3 @@ def guessMimeType(url):
 #    print "mimetype(%s): return %r" % (url, mimetype)   
     return mimetype
     
-#===============================================================================
-# TEST
-#===============================================================================
-def testLogging():
-    enable_loggers = ["test",
-                      ]
-    initLogging(3, enable_loggers)
-    
-    _baseLogger = logging.getLogger(BASE_LOGGER_NAME)
-    _enabledLogger = getModuleLogger("test")  
-    _disabledLogger = getModuleLogger("test2")
-    
-    _baseLogger.debug("_baseLogger.debug")  
-    _baseLogger.info("_baseLogger.info")  
-    _baseLogger.warning("_baseLogger.warning")  
-    _baseLogger.error("_baseLogger.error")  
-    print 
-
-    _enabledLogger.debug("_enabledLogger.debug")  
-    _enabledLogger.info("_enabledLogger.info")  
-    _enabledLogger.warning("_enabledLogger.warning")  
-    _enabledLogger.error("_enabledLogger.error")  
-    print 
-    
-    _disabledLogger.debug("_disabledLogger.debug")  
-    _disabledLogger.info("_disabledLogger.info")  
-    _disabledLogger.warning("_disabledLogger.warning")  
-    _disabledLogger.error("_disabledLogger.error")  
-    print 
-
-    write("util.write()")
-    warn("util.warn()")
-    status("util.status()")
-    note("util.note()")
-    debug("util.debug()")
-    
-
-if __name__ == "__main__":
-    testLogging()
-    pass

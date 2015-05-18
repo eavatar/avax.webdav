@@ -199,4 +199,5 @@ class RequestResolver(object):
             yield v
         if hasattr(app_iter, b"close"):
             app_iter.close()
+
         return

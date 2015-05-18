@@ -82,13 +82,19 @@ class FileResource(DAVNonCollection):
             self._batch.dirty = True
         return self._content_item.put_content_as_stream()
 
+    def endWrite(self, withErrors):
+        if withErrors:
+            logger.info("Finished uploading content with errors.")
+        else:
+            logger.debug("Finished uploading content.")
+
     def delete(self):
         """Remove this resource or collection (recursive).
 
         See DAVResource.delete()
         """
 
-        util.log("Delete folder: %s", self.name)
+        util.log("Delete folder: %s" % self.name)
 
         if self.provider.readonly:
             raise DAVError(HTTP_FORBIDDEN)
@@ -168,7 +174,6 @@ class FolderResource(DAVCollection):
         self._content_item = content_item
         # Setting the name from the file path should fix the case on Windows
         self.name = os.path.basename(path)
-        # self.name = self.name.encode("utf8")
 
 
     # Getter methods for standard live properties
@@ -196,6 +201,7 @@ class FolderResource(DAVCollection):
         name_list = []
         for name in self._content_item.entry_names():
             name_list.append(name)
+        logger.info("member names: %r", name_list)
         return name_list
 
     def getMember(self, name):
@@ -204,15 +210,14 @@ class FolderResource(DAVCollection):
         See DAVCollection.getMember()
         """
         content_item = self._content_item.lookup(name)
-        fp = os.path.join(self.path, name)
-#        name = name.encode("utf8")
+        logger.info("getMember %s in %s ", name, content_item.name)
         path = util.joinUri(self.path, name)
         if content_item.is_folder():
             res = FolderResource(self._batch, path, self.environ, content_item)
         elif content_item.is_document():
             res = FileResource(self._batch, path, self.environ, content_item)
         else:
-            logger.debug("Skipping non-file %s" % fp)
+            logger.info("Skipping non-file %s" % path)
             res = None
 
         return res
@@ -334,27 +339,19 @@ class FolderResource(DAVCollection):
 
 
 class ArchiveProvider(DAVProvider):
-    def __init__(self, repository, name, readonly=False):
+    def __init__(self, repository, name, archive, readonly=False):
         super(ArchiveProvider, self).__init__()
         self.repository = repository
         self.name = name
         self.readonly = readonly
 
         # for test
-        self.archive = self.repository.get_archive(self.name, create=True)
+        self.archive = archive
         # with self.archive.begin_batch() as batch:
         #    batch.create_folders(b"/public")
 
-    def _split_path(self, path):
-        path = path.strip(b'/')
-
-        if b'/' in path:
-            archive_name, rest = path.split(b'/', 1)
-        else:
-            archive_name = path
-            rest = b'/'
-
-        return archive_name, rest
+    def __repr__(self):
+        return "ArchiveProvider[%s]" % self.name
 
     def isReadOnly(self):
         return False
@@ -369,8 +366,10 @@ class ArchiveProvider(DAVProvider):
         See DAVProvider.getResourceInst()
         """
         self._count_getResourceInst += 1
+        assert full_path is not None
+
         path = b'/' + full_path.strip(b'/')
-        logger.debug("Path: %s", path)
+        logger.debug("Archive Path: '%s'", path)
 
         batch = environ.get(b'batch', None)
         assert batch is not None
@@ -378,7 +377,7 @@ class ArchiveProvider(DAVProvider):
         try:
             content_item = batch.lookup(path)
         except ObjectNotExist:
-            logger.debug("No object bound to path: %s", path)
+            logger.info("No object bound to path: %s", path)
             return None
 
         if content_item.is_folder():

@@ -105,5 +105,11 @@ class ErrorPrinter(object):
                                     (b"Content-Length", str(len(body))),
                                     (b"Date", util.getRfc1123Time()),
                                     ])
-            yield body 
+
+            method = environ[b"REQUEST_METHOD"]
+            if method == b'HEAD':
+                # body should not be returned for HEAD request.
+                yield b''
+            else:
+                yield body
             return

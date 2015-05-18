@@ -16,28 +16,20 @@ logger = logging.getLogger(__name__)
 class WebDavExtension(object):
     def __init__(self):
         logger.debug("WebDAV extension created.")
-        self.user_folder_path = os.path.join(environ.pod_dir(), 'temp')
-        # self.user_folder_path = '/tmp'
 
     def start(self, context):
         logger.debug('Starting WebDAV extension...')
-        user_folder = FilesystemProvider(self.user_folder_path)
         repository = context.get('repository')
         if not repository:
             raise RuntimeError("No repository found!")
 
-        repo_provider = RepositoryProvider(repository)
-        files_provider = ArchiveProvider(repository, b'files')
-
         conf = DEFAULT_CONFIG.copy()
         conf.update({
             b"mount_path": b'/dav',
-            b"provider_mapping": {b'/': repo_provider,
-                                  b'/files': files_provider,
-                                  b"/temp": user_folder, },
+            b"provider_mapping": {},
             b"port": 5080,
             b"user_mapping": {},
-            b"verbose": 2,
+            b"verbose": 1,
             b"propsmanager": True,
             b"locksmanager": True,
             b'dir_browser': {

@@ -355,6 +355,8 @@ class FilesystemProvider(DAVProvider):
         See DAVProvider.getResourceInst()
         """
         self._count_getResourceInst += 1
+        _logger.info("FSProvider Path: '%s'", path)
+
         fp = self._locToFilePath(path)
         if not os.path.exists(fp):
             return None

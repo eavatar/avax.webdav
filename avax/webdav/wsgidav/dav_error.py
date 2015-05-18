@@ -205,23 +205,19 @@ class DAVError(Exception):
         # Else return as HTML 
         status = getHttpStatusString(self)
         html = []
-        html.append(b"<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01//EN' 'http://www.w3.org/TR/html4/strict.dtd'>");
+        html.append(b"<!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.01//EN' 'http://www.w3.org/TR/html4/strict.dtd'>")
         html.append(b"<html><head>")
         html.append(b"  <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>")
         html.append(b"  <title>%s</title>" % status)
         html.append(b"</head><body>")
         html.append(b"  <h1>%s</h1>" % status)
-        html.append(b"  <p>%s</p>" % cgi.escape(self.getUserInfo()))
-#        html.append(b"  <hr>")
-#        html.append(b"  <p>%s</p>" % cgi.escape(str(datetime.datetime.now())))
-#        if self._server_descriptor:
-#            respbody.append(self._server_descriptor + b"<hr>")
+        userinfo = cgi.escape(self.getUserInfo())
+        # assert isinstance(userinfo, str)
+        html.append(b"  <p>%s</p>" % userinfo)
         html.append(b"<hr/>")
-        html.append(b"<a href='https://github.com/mar10/wsgidav/'>WsgiDAV/%s</a> - %s"
-                    % (__version__, cgi.escape(str(datetime.datetime.now()))))
         html.append(b"</body></html>")
         html = b"\n".join(html)
-        return (b"text/html", html)
+        return (b"text/html; charset=utf-8", html)
 
 
 def getHttpStatusCode(v):

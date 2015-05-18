@@ -33,6 +33,10 @@ class ArchiveResource(DAVCollection):
         """
         logger.debug("Delete archive: %s", self.name)
 
+    def getMemberNames(self):
+        logger.warning("getMemverNames called in ArchiveResource.")
+        return []
+
 
 class RepositoryRoot(DAVCollection):
     def __init__(self, path, environ, repository):
@@ -62,10 +66,10 @@ class RepositoryRoot(DAVCollection):
 
         See DAVCollection.getMemberNames()
         """
-
         name_list = []
         for name in self._repository.archive_names():
             name_list.append(name)
+        logger.info("getMemberNames in repo_provider: %r", name_list)
         return name_list
 
     def getMember(self, name):
@@ -73,8 +77,11 @@ class RepositoryRoot(DAVCollection):
 
         See DAVCollection.getMember()
         """
-        item = self._repository.find(name)
-        return ArchiveResource(b'/' + name, self.environ, name)
+        if not self._repository.has_archive(name):
+            return None
+
+        path = util.joinUri(self.path, name)
+        return ArchiveResource(path + b'/', self.environ, name)
 
     def createCollection(self, name):
         """Create a new collection as member of self.
@@ -108,6 +115,9 @@ class RepositoryProvider(DAVProvider):
 
         return archive_name, rest
 
+    def __repr__(self):
+        return "RepositoryProvider"
+
     def isReadOnly(self):
         return False
 
@@ -121,6 +131,7 @@ class RepositoryProvider(DAVProvider):
         See DAVProvider.getResourceInst()
         """
         self._count_getResourceInst += 1
-
-        return RepositoryRoot(path, environ, self.repository)
+        logger.info("Get resource by path: '%s'", path)
+        assert path == b'' or path == b'/'
+        return RepositoryRoot(b'', environ, self.repository)
 

@@ -41,11 +41,14 @@ See `Developers info`_ for more information about the WsgiDAV architecture.
 """
 from __future__ import absolute_import, print_function, unicode_literals
 
+import os
 import time
 import sys
 import threading
 import urllib
 import logging
+
+from ava.runtime import environ
 
 from ..wsgidav.dir_browser import WsgiDavDirBrowser
 from ..wsgidav.dav_provider import DAVProvider
@@ -126,16 +129,16 @@ def _checkConfig(config):
 class WsgiDAVApp(object):
 
     def __init__(self, config, repository=None):
+
+        util.initLogging(config[b"verbose"], config.get(b"enable_loggers", []))
+        util.log("Default encoding: %s (file system: %s)" % (sys.getdefaultencoding(), sys.getfilesystemencoding()))
+
         self.config = config
         self.repository = repository
         self.repo_provider = RepositoryProvider(repository)
-        util.initLogging(config[b"verbose"], config.get(b"enable_loggers", []))
-        
-        util.log("Default encoding: %s (file system: %s)" % (sys.getdefaultencoding(), sys.getfilesystemencoding()))
-        
+
         # Evaluate configuration and set defaults
         _checkConfig(config)
-        provider_mapping = self.config[b"provider_mapping"]
 #        response_trailer = config.get("response_trailer", "")
         self._verbose = config.get(b"verbose", 2)
 
@@ -144,18 +147,18 @@ class WsgiDAVApp(object):
             lockStorage = LockStorageDict()
             
         if not lockStorage:
-            locksManager = None
+            self.locksManager = None
         else:
-            locksManager = LockManager(lockStorage)
+            self.locksManager = LockManager(lockStorage)
 
-        propsManager = config.get(b"propsmanager")
-        if not propsManager:
+        self.propsManager = config.get(b"propsmanager")
+        if not self.propsManager:
             # Normalize False, 0 to None
-            propsManager = None
-        elif propsManager is True:
-            propsManager = PropertyManager()     
+            self.propsManager = None
+        elif self.propsManager is True:
+            self.propsManager = PropertyManager()
 
-        mount_path = config.get(b"mount_path")
+        self.mount_path = config.get(b"mount_path")
          
         user_mapping = self.config.get(b"user_mapping", {})
         domainController = config.get(b"domaincontroller") or WsgiDAVDomainController(user_mapping)
@@ -174,31 +177,42 @@ class WsgiDAVApp(object):
                 util.warn("WARNING: %s requires basic authentication.\n\tSet acceptbasic=True, acceptdigest=False, defaultdigest=False" % wdcName)
                 
         # Instantiate DAV resource provider objects for every share
+        self.repo_provider.setSharePath(b'/')
+        self.repo_provider.setLockManager(self.locksManager)
+        self.repo_provider.setPropManager(self.propsManager)
+
+        if self.mount_path:
+            self.repo_provider.setMountPath(self.mount_path)
+
+        fs_provider = FilesystemProvider(os.path.join(environ.pod_dir(), b'temp'))
+        fs_provider.setSharePath(b'/temp')
+        fs_provider.setLockManager(self.locksManager)
+        fs_provider.setPropManager(self.propsManager)
+        if self.mount_path:
+            fs_provider.setMountPath(self.mount_path)
+
         self.providerMap = {}
-        for (share, provider) in provider_mapping.items():
-            # Make sure share starts with, or is, '/' 
-            share = b"/" + share.strip(b"/")
+        self.providerMap[b'/'] = self.repo_provider
+        self.providerMap[b'/temp'] = fs_provider
 
-            # We allow a simple string as 'provider'. In this case we interpret 
-            # it as a file system root folder that is published. 
-            if isinstance(provider, basestring):
-                provider = FilesystemProvider(provider)
+        for name in self.repository.archive_names():
+            archive = self.repository.get_archive(name)
+            provider = ArchiveProvider(self.repository,
+                                       name,
+                                       archive)
+            sharePath = b'/' + name
+            provider.setSharePath(sharePath)
 
-            assert isinstance(provider, DAVProvider)
+            if self.mount_path:
+                provider.setMountPath(self.mount_path)
 
-            provider.setSharePath(share)
-            if mount_path:
-                provider.setMountPath(mount_path)
-            
-            # TODO: someday we may want to configure different lock/prop managers per provider
-            provider.setLockManager(locksManager)
-            provider.setPropManager(propsManager)
-            
-            self.providerMap[share] = provider
+            provider.setLockManager(self.locksManager)
+            provider.setPropManager(self.propsManager)
+            self.providerMap[sharePath] = provider
 
         if self._verbose >= 2:
-            logger.debug("Using lock manager: %r", locksManager)
-            logger.debug("Using property manager: %r", propsManager)
+            logger.debug("Using lock manager: %r", self.locksManager)
+            logger.debug("Using property manager: %r", self.propsManager)
             logger.debug("Using domain controller: %s", domainController)
             logger.debug("Registered DAV providers:")
 
@@ -226,7 +240,7 @@ class WsgiDAVApp(object):
                                         authacceptbasic, 
                                         authacceptdigest, 
                                         authdefaultdigest)      
-        application = ErrorPrinter(application, catchall=True)
+        application = ErrorPrinter(application, catchall=False)
 
         application = WsgiDavDebugFilter(application, config)
         
@@ -238,7 +252,8 @@ class WsgiDAVApp(object):
         
         # We unquote PATH_INFO here, although this should already be done by
         # the server.
-        path = urllib.unquote(environ[b"PATH_INFO"])
+        # path = urllib.unquote(environ[b"PATH_INFO"])
+        path = environ[b"PATH_INFO"]
 
         # issue 22: Pylons sends root as u'/' 
         if isinstance(path, unicode):
@@ -253,21 +268,33 @@ class WsgiDAVApp(object):
         ## Find DAV provider that matches the share
 
         # sorting share list by reverse length
-        shareList = self.providerMap.keys()
-        shareList.sort(key=len, reverse=True)
+        #shareList = self.providerMap.keys()
+        #shareList.sort(key=len, reverse=True)
 
         share = None 
-        for r in shareList:
-            # @@: Case sensitivity should be an option of some sort here; 
-            #     os.path.normpath might give the preferred case for a filename.
-            if r == b"/":
-                share = r
-                break
-            elif path.upper() == r.upper() or path.upper().startswith(r.upper() + b"/"):
-                share = r
-                break
-        
-        provider = self.providerMap.get(share)
+        #for r in shareList:
+        #    # @@: Case sensitivity should be an option of some sort here;
+        #    #     os.path.normpath might give the preferred case for a filename.
+        #    if r == b"/":
+        #        share = r
+        #        break
+        #    elif path.upper() == r.upper() or path.upper().startswith(r.upper() + b"/"):
+        #        share = r
+        #        break
+        strip_path = path.strip(b'/')
+
+        if b'/' in strip_path:
+            archive_name, _ = strip_path.split(b'/', 1)
+        else:
+            archive_name = strip_path.strip()
+
+        share = b'/' + archive_name
+        if archive_name == b'':
+            provider = self.repo_provider
+        else:
+            provider = self.providerMap.get(share)
+
+        logger.info("Provider:'%r' is used.", provider)
 
         # bind a new batch to this request.
         if isinstance(provider, ArchiveProvider):
@@ -309,6 +336,7 @@ class WsgiDAVApp(object):
         start_time = time.time()
 
         def _start_response_wrapper(status, response_headers, exc_info=None):
+            # util.log("_start_response_wrapped entered.")
             # Postprocess response headers
             headerDict = {}
             for header, value in response_headers:
@@ -316,7 +344,7 @@ class WsgiDAVApp(object):
                     util.warn("Duplicate header in response: %s" % header)
                 headerDict[header.lower()] = value
 
-            # Check if we should close the connection after this request. 
+            # Check if we should close the connection after this request.
             # http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
             forceCloseConnection = False
             currentContentLength = headerDict.get(b"content-length")
@@ -398,20 +426,26 @@ class WsgiDAVApp(object):
 #                                        response_headers.get(""), # response Content-Length
                                         # referer
                 ), file=sys.stdout)
- 
+
+            # util.log("_start_response_wrapped CHECKPOINT 1.")
+
             return start_response(status, response_headers, exc_info)
             
         # Call next middleware
-        app_iter = self._application(environ, _start_response_wrapper)
-        for v in app_iter:
-            yield v
-        if hasattr(app_iter, b"close"):
-            app_iter.close()
-
-        # commit batch if any.
-        batch = environ.get(b'batch')
-        if batch:
-            batch.commit()
-            del environ[b'batch']
+        try:
+            app_iter = self._application(environ, _start_response_wrapper)
+            for v in app_iter:
+                yield v
+            if hasattr(app_iter, b"close"):
+                app_iter.close()
+        except Exception as ex:
+            # this should not happen, just in case.
+            logger.error("Error in calling application: %r", ex, exc_info=True)
+        finally:
+            # commit batch if any.
+            batch = environ.get(b'batch')
+            if batch:
+                batch.commit()
+                del environ[b'batch']
 
         return

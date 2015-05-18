@@ -76,6 +76,38 @@ class BasicTest(unittest.TestCase):
         self.assertEqual(shiftPath("/a/b/c", ""),
                          ("", "/a/b/c", ""))
 
+    def test_logging(self):
+        enable_loggers = ["test",
+                      ]
+        initLogging(3, enable_loggers)
+
+        _baseLogger = logging.getLogger(BASE_LOGGER_NAME)
+        _enabledLogger = getModuleLogger("test")
+        _disabledLogger = getModuleLogger("test2")
+
+        _baseLogger.debug("_baseLogger.debug")
+        _baseLogger.info("_baseLogger.info")
+        _baseLogger.warning("_baseLogger.warning")
+        _baseLogger.error("_baseLogger.error")
+        print
+
+        _enabledLogger.debug("_enabledLogger.debug")
+        _enabledLogger.info("_enabledLogger.info")
+        _enabledLogger.warning("_enabledLogger.warning")
+        _enabledLogger.error("_enabledLogger.error")
+        print
+
+        _disabledLogger.debug("_disabledLogger.debug")
+        _disabledLogger.info("_disabledLogger.info")
+        _disabledLogger.warning("_disabledLogger.warning")
+        _disabledLogger.error("_disabledLogger.error")
+        print
+
+        write("util.write()")
+        warn("util.warn()")
+        status("util.status()")
+        note("util.note()")
+        debug("util.debug()")
 
 #===============================================================================
 # suite

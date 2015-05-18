@@ -159,7 +159,12 @@ class WsgiDavDebugFilter(object):
                                sub_app_start_response.exc_info)
 
             # Dump response headers
+            # util.log('first_yield: %r' % first_yield)
+            # util.log('dumpResponse: %r' % dumpResponse)
+
             if first_yield and dumpResponse:
+                util.log("Dump response")
+
                 print(b"<%s> --- %s Response(%s): ---"
                       % (threading._get_ident(),
                          method,
@@ -170,6 +175,7 @@ class WsgiDavDebugFilter(object):
                     print(b"%s: %s" % (envitem, repr(headersdict[envitem])),
                           file=self.out)
                 print(b"", file=self.out)
+                # util.log("Dump response finished.")
 
             # Check, if response is a binary string, otherwise we probably have 
             # calculated a wrong content-length
@@ -194,7 +200,9 @@ class WsgiDavDebugFilter(object):
                 elif len(v) > 0:
                     print(v, file=self.out)
 
-            nbytes += len(v) 
+            # util.log("Flush output")
+            self.out.flush()
+            nbytes += len(v)
             first_yield = False
             yield v
         if hasattr(app_iter, b"close"):

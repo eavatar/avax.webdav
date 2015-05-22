@@ -852,6 +852,7 @@ def addPropertyResponse(multistatusEL, href, propList):
                 # value must be string or unicode
 #                log("%s value:%s" % (name, stringRepr(value)))
 #                etree.SubElement(propEL, name).text = value
+
                 etree.SubElement(propEL, name).text = toUnicode(value)
         # <status>
         etree.SubElement(propstatEL, b"{DAV:}status").text = b"HTTP/1.1 %s" % status

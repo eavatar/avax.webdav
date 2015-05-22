@@ -5,6 +5,7 @@ from __future__ import (absolute_import, division, unicode_literals)
 
 import os
 import logging
+from binascii import b2a_hex
 
 from avax.repository.errors import ObjectNotExist
 
@@ -48,7 +49,7 @@ class FileResource(DAVNonCollection):
         return self.name
 
     def getEtag(self):
-        return self._content_item.hexsha
+        return b2a_hex(self._content_item.psha)
 
     def getLastModified(self):
         return self._content_item.modified_at
@@ -187,7 +188,7 @@ class FolderResource(DAVCollection):
         return None
 
     def getEtag(self):
-        return self._content_item.hexsha
+        return b2a_hex(self._content_item.psha)
 
     def getLastModified(self):
         return self._content_item.modified_at

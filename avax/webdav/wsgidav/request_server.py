@@ -597,7 +597,7 @@ class RequestServer(object):
         """
         @see: http://www.webdav.org/specs/rfc4918.html#METHOD_PUT
         """
-        _logger.info("Enter doPUT()")
+        # _logger.info("Enter doPUT()")
 
         path = environ[b"PATH_INFO"]
         provider = self._davProvider
@@ -691,24 +691,6 @@ class RequestServer(object):
                 # XP and Vista MiniRedir submit PUT with Content-Length 0, 
                 # before LOCK and the real PUT. So we have to accept this. 
                 _logger.info("PUT: Content-Length == 0. Creating empty file...")
-                
-#            elif contentlength < 0:
-#                # TODO: review this
-#                # If CONTENT_LENGTH is invalid, we may try to workaround this
-#                # by reading until the end of the stream. This may block however!
-#                # The iterator produced small chunks of varying size, but not
-#                # sure, if we always get everything before it times out.
-#                _logger.warning("PUT with invalid Content-Length (%s). Trying to read all (this may timeout)..." % environ.get("CONTENT_LENGTH"))
-#                nb = 0
-#                try:
-#                    for s in environ["wsgi.input"]:
-#                        environ["wsgidav.some_input_read"] = 1
-#                        _logger.debug("PUT: read from wsgi.input.__iter__, len=%s" % len(s))
-#                        fileobj.write(s)
-#                        nb += len (s)
-#                except socket.timeout:
-#                    _logger.warning("PUT: input timed out after writing %s bytes" % nb)
-#                    hasErrors = True                    
             else:
                 assert contentlength > 0
                 contentremain = contentlength

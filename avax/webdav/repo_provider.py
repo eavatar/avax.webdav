@@ -4,6 +4,7 @@ from __future__ import (absolute_import, division, unicode_literals)
 import io
 import logging
 
+from binascii import b2a_hex
 from .wsgidav import util
 from .wsgidav.dav_error import DAVError, HTTP_FORBIDDEN
 from .wsgidav.dav_provider import DAVProvider, DAVCollection, DAVNonCollection
@@ -56,7 +57,7 @@ class RepositoryRoot(DAVCollection):
         return None
 
     def getEtag(self):
-        return self._repository.hexsha
+        return b2a_hex(self._repository.psha)
 
     def getLastModified(self):
         return self._repository.modified_at

@@ -10,6 +10,8 @@ from binascii import b2a_hex
 from avax.repository.errors import ObjectNotExist
 
 from .wsgidav import util
+from .wsgidav import xml_tools
+from .wsgidav.util import etree
 from .wsgidav.dav_error import DAVError, HTTP_FORBIDDEN
 from .wsgidav.dav_provider import DAVProvider, DAVCollection, DAVNonCollection
 
@@ -53,6 +55,29 @@ class FileResource(DAVNonCollection):
 
     def getLastModified(self):
         return self._content_item.modified_at
+
+    def getPropertyNames(self, isAllProp):
+        prop_name_list = super(FileResource, self).getPropertyNames(isAllProp)
+        prop_name_list.extend(self._content_item.list_xattrs())
+
+        return prop_name_list
+
+    def getPropertyValue(self, propname):
+        value = self._content_item.get_xattr(propname)
+        if value:
+            return xml_tools.stringToXML(value)
+
+        return super(FileResource, self).getPropertyValue(propname)
+
+    def setPropertyValue(self, propname, value, dryRun=False):
+        if propname.startswith(b'{DAV:}'):
+            super(FileResource, self).setPropertyValue(propname, value, dryRun)
+        elif not dryRun:
+            if value is None:
+                self._content_item.remove_xattr(propname)
+            else:
+                value = etree.tostring(value)
+                self._content_item.set_xattr(propname, value)
 
     def supportEtag(self):
         return True
@@ -193,6 +218,32 @@ class FolderResource(DAVCollection):
     def getLastModified(self):
         return self._content_item.modified_at
 
+    def getPropertyNames(self, isAllProp):
+        prop_name_list = super(FolderResource, self).getPropertyNames(isAllProp)
+        prop_name_list.extend(self._content_item.list_xattrs())
+
+        return prop_name_list
+
+    def getPropertyValue(self, propname):
+        value = self._content_item.get_xattr(propname)
+        if value:
+            return xml_tools.stringToXML(value)
+
+        return super(FolderResource, self).getPropertyValue(propname)
+
+    def setPropertyValue(self, propname, value, dryRun=False):
+        if propname.startswith(b'{DAV:}'):
+            super(FolderResource, self).setPropertyValue(propname, value, dryRun)
+        elif not dryRun:
+            if value is None:
+                self._content_item.remove_xattr(propname)
+            else:
+                value = etree.tostring(value)
+                self._content_item.set_xattr(propname, value)
+
+    def removeAllProperties(self, recursive):
+        self._content_item.remove_all_xattrs()
+
     def getMemberNames(self):
         """Return list of direct collection member names (utf-8 encoded).
 
@@ -272,7 +323,7 @@ class FolderResource(DAVCollection):
         except Exception as e:
             logger.error('Failed to delete folder.', e, exc_info=True)
 
-        self.removeAllProperties(True)
+        # self.removeAllProperties(True)
         self.removeAllLocks(True)
 
     def handleDelete(self):

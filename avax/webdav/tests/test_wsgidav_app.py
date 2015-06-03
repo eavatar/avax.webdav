@@ -18,9 +18,9 @@ import unittest
 
 logging.basicConfig(level=logging.DEBUG)
 
-from avax.repository.blocks.store import MockBlockStore
+from avax.repository.blocks.store import MemoryBlockStore
 from avax.repository.objects.store import ObjectStore
-from avax.repository.objects.repo import Repository
+from avax.repository.objects.vault import Vault
 
 from avax.webdav.wsgidav.wsgidav_app import DEFAULT_CONFIG, WsgiDAVApp
 from avax.webdav.archive_provider import ArchiveProvider
@@ -38,9 +38,9 @@ except ImportError:
 class ServerTest(unittest.TestCase):
     """Test wsgidav_app using paste.fixture."""
 
-    block_store = MockBlockStore()
+    block_store = MemoryBlockStore()
     object_store = ObjectStore(block_store)
-    repository = Repository(object_store)
+    repository = Vault(object_store)
 
     def _makeWsgiDAVApp(self, withAuthentication):
         config = DEFAULT_CONFIG.copy()

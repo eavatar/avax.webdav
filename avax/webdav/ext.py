@@ -19,9 +19,9 @@ class WebDavExtension(object):
 
     def start(self, context):
         logger.debug('Starting WebDAV extension...')
-        repository = context.get('repository')
+        repository = context.get('vault')
         if not repository:
-            raise RuntimeError("No repository found!")
+            raise RuntimeError("No vault found!")
 
         conf = DEFAULT_CONFIG.copy()
         conf.update({
@@ -30,7 +30,7 @@ class WebDavExtension(object):
             b"port": 5080,
             b"user_mapping": {},
             b"verbose": 1,
-            b"propsmanager": True,
+            b"propsmanager": False,
             b"locksmanager": True,
             b'dir_browser': {
                 b"enable": False,

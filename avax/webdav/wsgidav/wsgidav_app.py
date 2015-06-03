@@ -195,8 +195,8 @@ class WsgiDAVApp(object):
         self.providerMap[b'/'] = self.repo_provider
         self.providerMap[b'/temp'] = fs_provider
 
-        for name in self.repository.archive_names():
-            archive = self.repository.get_archive(name)
+        for name in self.repository.repository_names():
+            archive = self.repository.get_repository(name)
             provider = ArchiveProvider(self.repository,
                                        name,
                                        archive)

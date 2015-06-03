@@ -299,7 +299,7 @@ class HgResource(_DAVResource):
         See DAVResource.getContent()
         """
         assert not self.isCollection
-        d = self.fctx.data()
+        d = self.fctx.buf()
         return StringIO(d)
     
     def beginWrite(self, contentType=None):

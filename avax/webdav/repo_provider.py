@@ -68,7 +68,7 @@ class RepositoryRoot(DAVCollection):
         See DAVCollection.getMemberNames()
         """
         name_list = []
-        for name in self._repository.archive_names():
+        for name in self._repository.repository_names():
             name_list.append(name)
         logger.info("getMemberNames in repo_provider: %r", name_list)
         return name_list
@@ -78,7 +78,7 @@ class RepositoryRoot(DAVCollection):
 
         See DAVCollection.getMember()
         """
-        if not self._repository.has_archive(name):
+        if not self._repository.has_repository(name):
             return None
 
         path = util.joinUri(self.path, name)
@@ -89,7 +89,7 @@ class RepositoryRoot(DAVCollection):
 
         See DAVResource.createCollection()
         """
-        self._repository.create_archive(name)
+        self._repository.create_repository(name)
 
     def delete(self):
         """Remove this resource or collection (recursive).
@@ -124,7 +124,7 @@ class RepositoryProvider(DAVProvider):
 
     def exists(self, path, environ):
         path = path.strip(b'/')
-        return self.repository.has_archive(path)
+        return self.repository.has_repository(path)
 
     def getResourceInst(self, path, environ):
         """Return info dictionary for path.

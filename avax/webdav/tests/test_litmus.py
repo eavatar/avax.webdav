@@ -11,9 +11,9 @@ import subprocess
 from multiprocessing.process import Process
 import time
 
-from avax.repository.blocks.store import MockBlockStore
+from avax.repository.blocks.store import MemoryBlockStore
 from avax.repository.objects.store import ObjectStore
-from avax.repository.objects.repo import Repository
+from avax.repository.objects.vault import Vault
 
 from avax.webdav.wsgidav.wsgidav_app import DEFAULT_CONFIG, WsgiDAVApp
 from avax.webdav.wsgidav.fs_dav_provider import FilesystemProvider
@@ -27,8 +27,8 @@ def run_wsgidav_server(with_auth, with_ssl):
     share_path = os.path.join(gettempdir(), "wsgidav-test")
     if not os.path.exists(share_path):
         os.mkdir(share_path)
-    object_store = ObjectStore(MockBlockStore())
-    repository = Repository(object_store)
+    object_store = ObjectStore(MemoryBlockStore())
+    repository = Vault(object_store)
 
     provider = ArchiveProvider(repository, b'files')
     fs_provider = FilesystemProvider(share_path)
